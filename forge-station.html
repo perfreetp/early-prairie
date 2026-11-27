@@ -1,0 +1,567 @@
+<title>剑身锻造工序台</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  :root{
+    --bg:#14171c; --panel:#1c2129; --panel2:#242b35; --fg:#e9edf2; --muted:#98a4b1;
+    --accent:#e07b2f; --accent2:#5b9cf0; --danger:#e05555; --warn:#d8a23c; --ok:#4fc07a;
+    --line:#2d3641; --chip:#20262f;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f3f1ec; --panel:#ffffff; --panel2:#f0ede6; --fg:#23282f; --muted:#5d6a77;
+      --accent:#c25e1a; --accent2:#2f6fd0; --danger:#c23333; --warn:#a87a1c; --ok:#2c8a52;
+      --line:#ddd6c9; --chip:#ece8df;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f3f1ec; --panel:#ffffff; --panel2:#f0ede6; --fg:#23282f; --muted:#5d6a77;
+    --accent:#c25e1a; --accent2:#2f6fd0; --danger:#c23333; --warn:#a87a1c; --ok:#2c8a52;
+    --line:#ddd6c9; --chip:#ece8df;
+    color-scheme: light;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding-block:18px 40px;
+    padding-left:max(16px, env(safe-area-inset-left, 0px));
+    padding-right:max(16px, env(safe-area-inset-right, 0px));}
+  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
+  h1{font-size:20px;margin:0;letter-spacing:1px}
+  h1 small{font-size:12px;color:var(--muted);font-weight:400;margin-left:10px}
+  .actions{display:flex;flex-wrap:wrap;gap:8px}
+  button{font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .btn-a{border-color:var(--ok);color:var(--ok)}
+  .btn-b{border-color:var(--warn);color:var(--warn)}
+  /* station stepper */
+  #stations{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px}
+  .st{display:flex;align-items:center;gap:8px;background:var(--chip);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;user-select:none}
+  .st .num{width:22px;height:22px;border-radius:50%;background:var(--panel2);display:grid;place-items:center;font-size:12px;color:var(--muted)}
+  .st.done .num{background:var(--ok);color:#10131a}
+  .st.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .st.locked{opacity:.45;cursor:not-allowed}
+  .st .nm{font-size:14px}
+  .st .sub{font-size:11px;color:var(--muted)}
+  .arrow{color:var(--muted);font-size:12px}
+  .hint{font-size:12px;color:var(--muted);margin:-6px 0 12px}
+  main{display:flex;gap:14px;flex-wrap:wrap}
+  .stage{flex:1 1 620px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}
+  canvas{width:100%;height:360px;display:block}
+  aside{flex:0 1 330px;min-width:280px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
+  aside h2{font-size:15px;margin:0}
+  .opt{display:block;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;background:var(--panel2)}
+  .opt.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .opt b{font-size:13px}
+  .opt span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+  input[type=range]{width:100%}
+  .exec{width:100%;background:var(--accent);border:none;color:#181206;font-weight:600;padding:10px;border-radius:8px}
+  .exec:hover{filter:brightness(1.1)}
+  .note{font-size:12px;color:var(--muted);line-height:1.6}
+  .warnline{font-size:12px;color:var(--warn)}
+  .dangerline{font-size:12px;color:var(--danger)}
+  .okline{font-size:12px;color:var(--ok)}
+  dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12.5px;margin:0;border-top:1px dashed var(--line);padding-top:10px}
+  dt{color:var(--muted)} dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+  #report{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--panel2)}
+  #report h3{margin:0 0 6px;font-size:15px}
+  #report .grade{font-size:17px;font-weight:700}
+  #report p{margin:4px 0;font-size:12.5px;color:var(--muted)}
+  .logwrap{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .logwrap h2{font-size:13px;margin:0 0 8px;color:var(--muted)}
+  #log{list-style:none;margin:0;padding:0;font-size:12.5px;line-height:1.9;max-height:150px;overflow-y:auto}
+  #log li{border-bottom:1px dashed var(--line);padding:2px 0}
+  #log li b{color:var(--accent)}
+  @media (max-width:720px){ canvas{height:300px} aside{flex:1 1 100%} }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>⚒ 剑身锻造工序台<small>击剑剑身 · 五工位可回放仿真</small></h1>
+    <div class="actions">
+      <button class="btn-a" id="presetA">路线 A · 顺利成品</button>
+      <button class="btn-b" id="presetB">路线 B · 临界对比</button>
+      <button id="replay">▶ 回放工序</button>
+      <button id="reset">重置</button>
+    </div>
+  </header>
+
+  <nav id="stations"></nav>
+  <p class="hint">点击工位选择参数并执行；点击<strong>已完成的工位</strong>可回退修改参数，其后的所有工序会按新参数自动重算。锤击越多剑身越延展越薄，但过度锻打会变脆；淬火冷却越快硬度越高，开裂风险也越大。</p>
+
+  <main>
+    <section class="stage">
+      <canvas id="cv"></canvas>
+      <div id="report" hidden></div>
+    </section>
+    <aside id="panel"></aside>
+  </main>
+
+  <section class="logwrap">
+    <h2>工序记录</h2>
+    <ul id="log"></ul>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ---------------- 参数档位 ---------------- */
+const HEATS=[
+  {name:'低温 · 800°C', eff:0.60, brittle:0.15, dhrc:-2, glow:'#c2501f', note:'温度不足：延展效率 ×0.6，锻打应力大，脆性 +0.15'},
+  {name:'中温 · 1000°C',eff:1.00, brittle:0,    dhrc:0,  glow:'#e07b2f', note:'标准锻造温度：延展效率 ×1.0，无附加脆性'},
+  {name:'高温 · 1200°C',eff:1.10, brittle:0.20, dhrc:-4, glow:'#f2c14e', note:'过热：延展 ×1.1 但晶粒粗化，脆性 +0.20、硬度 -4'},
+];
+const COOLS=[
+  {name:'油冷 · 慢',  risk:0,    dhrc:0,  note:'冷却温和：几乎无开裂风险，硬度提升有限'},
+  {name:'油淬 · 中',  risk:0,    dhrc:7,  note:'均衡方案：硬度中等，安全'},
+  {name:'水冷 · 快',  risk:0.25, dhrc:14, note:'硬度高：开裂指数 +0.25'},
+  {name:'盐水 · 极快',risk:0.50, dhrc:21, note:'硬度最高：开裂指数 +0.50，慎用'},
+];
+const EDGES=[{name:'标准刃',lines:26,note:'常规精磨，刃口耐用'},{name:'镜面刃',lines:52,note:'镜面研磨，刃口更亮更锋利'}];
+const STATIONS=[
+  {name:'坯料', sub:'钢坯备料'},
+  {name:'加热', sub:'三段炉温'},
+  {name:'锻打', sub:'锤击成形'},
+  {name:'淬火', sub:'四档冷却'},
+  {name:'开刃', sub:'精磨成品'},
+];
+const SAFE_STRIKES=20, CRACK_THRESHOLD=0.50;
+
+/* ---------------- 状态 ---------------- */
+let params={heat:1, strikes:18, cool:1, edge:0};
+let executed=[true,false,false,false,false];
+let selected=0;
+let progress={heat:0, strikes:0, quench:0, edge:0};   // 动画进度（驱动画面）
+let queue=[], busy=false, currentAnim=null, queueResolvers=[];
+let sparks=[], steam=[];
+
+/* ---------------- 物理模型（确定性） ---------------- */
+function derive(){
+  const heat=HEATS[params.heat], cool=COOLS[params.cool];
+  const eff=params.strikes*heat.eff;
+  const L=220+eff*5;
+  const W=Math.max(18, 30-eff*0.32);
+  const T=Math.max(2.4, 8-eff*0.16);
+  const B=Math.max(0,params.strikes-SAFE_STRIKES)*0.08 + heat.brittle;
+  const idx=B+cool.risk;
+  const hrc=Math.round(34+cool.dhrc+Math.min(params.strikes,20)*0.3+heat.dhrc);
+  const cracks=(executed[3] && idx>=CRACK_THRESHOLD) ? Math.max(1,Math.round((idx-CRACK_THRESHOLD)*12)) : 0;
+  return {eff,L,W,T,B,idx,hrc,cracks};
+}
+function geomOf(pr){
+  const heat=HEATS[params.heat];
+  const eff=pr.strikes*heat.eff;
+  return {L:220+eff*5, W:Math.max(18,30-eff*0.32), T:Math.max(2.4,8-eff*0.16)};
+}
+function rating(d){
+  if(d.cracks>0) return {t:'报废 · 淬火开裂', c:'var(--danger)', note:`剑身出现 ${d.cracks} 条裂纹，无法作为比赛用剑。回退到「锻打」减少锤击，或到「淬火」降低冷却速度。`};
+  if(params.strikes<8) return {t:'未成形 · 锻打不足', c:'var(--warn)', note:'剑身过厚，未达到击剑剑身规格。回退到「锻打」增加锤击次数。'};
+  if(d.hrc<42) return {t:'合格 · 硬度偏软', c:'var(--warn)', note:'硬度偏低，剑身容易弯。可回退到「淬火」加快冷却。'};
+  if(d.hrc<=56) return {t:'优良 · 性能均衡', c:'var(--ok)', note:'硬度与韧性均衡，无裂纹，达到比赛用剑标准。'};
+  return {t:'合格 · 硬而偏脆', c:'var(--warn)', note:'硬度很高但接近脆性边缘，建议回火或稍降冷却速度。'};
+}
+
+/* ---------------- 工具 ---------------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function hx(c){c=c.replace('#','');return [parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)]}
+function mix(a,b,t){const A=hx(a),B=hx(b);return `rgb(${A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(',')})`}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2}
+
+/* ---------------- 动画队列 ---------------- */
+function runQueue(){
+  return new Promise(res=>{queueResolvers.push(res); pump();});
+}
+function pump(){
+  if(currentAnim) return;
+  if(queue.length===0){
+    busy=false;
+    const rs=queueResolvers; queueResolvers=[];
+    rs.forEach(r=>r());
+    renderPanel(); renderReport();
+    return;
+  }
+  busy=true;
+  currentAnim=queue.shift();
+  currentAnim.t0=performance.now();
+}
+function enqueueStages(){
+  const targets={heat:executed[1]?1:0, strikes:executed[2]?params.strikes:0, quench:executed[3]?1:0, edge:executed[4]?1:0};
+  const order=['heat','strikes','quench','edge'];
+  for(const f of order){
+    const from=progress[f], to=targets[f];
+    if(Math.abs(from-to)<1e-6) continue;
+    let dur=650;
+    if(f==='strikes') dur=clamp(70*Math.abs(to-from)+300, 400, 2800);
+    if(f==='quench') dur=1000;
+    queue.push({field:f, from, to, dur});
+  }
+}
+
+/* ---------------- 画布 ---------------- */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let CW=800, CH=360, DPR=1;
+function resize(){
+  DPR=window.devicePixelRatio||1;
+  CW=cv.clientWidth; CH=cv.clientHeight;
+  cv.width=CW*DPR; cv.height=CH*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+new ResizeObserver(resize).observe(cv); resize();
+
+function bladePath(x,cy,Lpx,Wpx,tip){
+  const tl=Math.min(52,Lpx*0.14)*tip;
+  ctx.beginPath();
+  ctx.moveTo(x,cy-Wpx/2);
+  ctx.lineTo(x+Lpx-tl,cy-Wpx*0.16);
+  ctx.lineTo(x+Lpx,cy);
+  ctx.lineTo(x+Lpx-tl,cy+Wpx*0.16);
+  ctx.lineTo(x,cy+Wpx/2);
+  ctx.closePath();
+}
+
+function draw(now){
+  // 动画推进
+  if(currentAnim){
+    const a=currentAnim, t=clamp((now-a.t0)/a.dur,0,1);
+    progress[a.field]=a.from+(a.to-a.from)*ease(t);
+    if(a.field==='strikes'){
+      const prev=Math.floor(a.from+(a.to-a.from)*ease(Math.max(0,(now-16-a.t0)/a.dur)));
+      if(Math.floor(progress.strikes)>prev) spawnSparks();
+    }
+    if(a.field==='quench' && t<0.9) spawnSteam();
+    if(t>=1){ progress[a.field]=a.to; currentAnim=null; pump(); }
+  }
+  // 粒子
+  sparks=sparks.filter(p=>p.life>0); steam=steam.filter(p=>p.life>0);
+  sparks.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.12;p.life-=0.03});
+  steam.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life-=0.012;p.r+=0.25});
+
+  ctx.clearRect(0,0,CW,CH);
+  const d=derive(), g=geomOf(progress);
+  const scale=Math.min(1.9,(CW-90)/g.L);
+  const Lpx=g.L*scale, Wpx=g.W*2.2;
+  const x0=(CW-Lpx)/2, cy=CH*0.46;
+  const tip=clamp(progress.strikes/6,0,1);
+
+  /* 颜色 */
+  let col=mix('#8b939c','#c7cfd8',0.2);
+  const glowAmt=progress.heat*(1-progress.quench);
+  if(glowAmt>0.01) col=mix(col,HEATS[params.heat].glow,glowAmt*0.85);
+  if(progress.quench>0){
+    const hc=mix('#8f979e','#e4ebf4',clamp((d.hrc-30)/35,0,1));
+    col=mix(col,hc,progress.quench);
+  }
+  if(progress.edge>0) col=mix(col,'#f0f4f8',progress.edge*0.35);
+
+  /* 工作台参考线 */
+  ctx.strokeStyle='rgba(128,140,155,0.18)';
+  ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(20,cy+Wpx/2+34);ctx.lineTo(CW-20,cy+Wpx/2+34);ctx.stroke();
+
+  /* 剑身 */
+  ctx.save();
+  if(glowAmt>0.01){ctx.shadowColor=HEATS[params.heat].glow;ctx.shadowBlur=44*glowAmt;}
+  bladePath(x0,cy,Lpx,Wpx,tip);
+  const grad=ctx.createLinearGradient(0,cy-Wpx/2,0,cy+Wpx/2);
+  grad.addColorStop(0,mix(col,'#ffffff',0.20));
+  grad.addColorStop(0.5,col);
+  grad.addColorStop(1,mix(col,'#000000',0.28));
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.restore();
+  ctx.save();
+  bladePath(x0,cy,Lpx,Wpx,tip);
+  ctx.clip();
+
+  /* 坯料砂面 */
+  const r1=mulberry32(3);
+  ctx.fillStyle='rgba(0,0,0,0.18)';
+  for(let i=0;i<70;i++){ctx.fillRect(x0+r1()*Lpx, cy-Wpx/2+r1()*Wpx, 1.4,1.4);}
+
+  /* 锻打锤痕 */
+  const nD=Math.floor(progress.strikes);
+  const r2=mulberry32(7);
+  for(let i=0;i<nD;i++){
+    const dx=x0+Lpx*(0.06+0.86*r2()), dy=cy+(r2()-0.5)*Wpx*0.62, rr=2.5+3.5*r2();
+    ctx.beginPath();ctx.ellipse(dx,dy,rr,rr*0.55,0,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,0.10)';ctx.fill();
+    ctx.beginPath();ctx.ellipse(dx,dy-rr*0.3,rr*0.8,rr*0.35,0,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.07)';ctx.fill();
+  }
+
+  /* 开刃磨痕 */
+  if(progress.edge>0.01){
+    ctx.strokeStyle=`rgba(255,255,255,${0.10*progress.edge})`;
+    ctx.lineWidth=1;
+    const sp=EDGES[params.edge].lines>40?4:7;
+    for(let lx=x0-Lpx*0.2; lx<x0+Lpx*1.2; lx+=sp){
+      ctx.beginPath();ctx.moveTo(lx,cy-Wpx);ctx.lineTo(lx+Wpx*1.4,cy+Wpx);ctx.stroke();
+    }
+    ctx.strokeStyle=`rgba(255,255,255,${0.5*progress.edge})`;
+    ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(x0+4,cy);ctx.lineTo(x0+Lpx-8,cy);ctx.stroke();
+  }
+
+  /* 裂纹 */
+  if(d.cracks>0 && progress.quench>0.05){
+    const r3=mulberry32(99);
+    for(let i=0;i<d.cracks;i++){
+      const cxk=x0+Lpx*(0.15+0.7*r3());
+      ctx.beginPath();
+      let yy=cy-Wpx/2-2, xx=cxk;
+      ctx.moveTo(xx,yy);
+      for(let s=0;s<4;s++){xx+=(r3()-0.5)*14; yy+=(Wpx+4)/4; ctx.lineTo(xx,yy);}
+      ctx.strokeStyle=`rgba(42,10,10,${0.9*progress.quench})`;ctx.lineWidth=2.4;ctx.stroke();
+      ctx.strokeStyle=`rgba(255,90,78,${0.55*progress.quench})`;ctx.lineWidth=0.8;ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  /* 裂纹标记 */
+  if(d.cracks>0 && progress.quench>0.5){
+    const r4=mulberry32(99);
+    ctx.fillStyle='#e05555';
+    for(let i=0;i<d.cracks;i++){
+      const cxk=x0+Lpx*(0.15+0.7*r4());
+      const my=cy-Wpx/2-16;
+      ctx.beginPath();ctx.moveTo(cxk,my);ctx.lineTo(cxk-6,my-11);ctx.lineTo(cxk+6,my-11);ctx.closePath();ctx.fill();
+    }
+    ctx.font='bold 13px system-ui';
+    ctx.textAlign='right';
+    ctx.fillStyle='#e05555';
+    ctx.fillText(`⚠ 裂纹 ×${d.cracks}`, CW-18, 26);
+  }
+
+  /* 锤子 */
+  if(currentAnim && currentAnim.field==='strikes' && progress.strikes>0.2){
+    const hxp=x0+Lpx*0.58;
+    const ph=progress.strikes%1;
+    const dip=ph<0.35?ease(ph/0.35):1-ease((ph-0.35)/0.65);
+    const rest=cy-120, hit=cy-Wpx/2-16;
+    const hy=rest+(hit-rest)*dip;
+    ctx.save();
+    ctx.translate(hxp,hy);ctx.rotate(-0.12);
+    ctx.fillStyle='#7a5b34';ctx.fillRect(-3,0,6,52);          // 柄
+    ctx.fillStyle='#5c6670';ctx.fillRect(-20,-16,40,20);       // 锤头
+    ctx.fillStyle='#8b96a1';ctx.fillRect(-20,-16,40,5);
+    ctx.restore();
+  }
+
+  /* 火花 / 蒸汽 */
+  sparks.forEach(p=>{ctx.fillStyle=`rgba(255,${140+Math.floor(p.life*80)},40,${p.life})`;ctx.fillRect(p.x,p.y,2.2,2.2);});
+  steam.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(220,228,238,${p.life*0.35})`;ctx.fill();});
+
+  /* 截面图 */
+  drawSection(18, CH-118, 168, 100, g, col, d);
+
+  /* 左上状态 */
+  ctx.font='12px system-ui';ctx.textAlign='left';ctx.fillStyle='rgba(150,162,178,0.9)';
+  const stageName = executed[4]?'成品':executed[3]?'已淬火':executed[2]?'已锻打':executed[1]?'已加热':'钢坯';
+  ctx.fillText(`状态：${stageName}`, 18, 24);
+}
+function spawnSparks(){
+  const g=geomOf(progress), scale=Math.min(1.9,(CW-90)/g.L);
+  const hxp=(CW-g.L*scale)/2+g.L*scale*0.58, hy=CH*0.46-g.W*2.2/2-10;
+  for(let i=0;i<7;i++) sparks.push({x:hxp,y:hy,vx:(Math.random()-0.5)*4,vy:-Math.random()*3-1,life:0.6+Math.random()*0.4});
+}
+function spawnSteam(){
+  const g=geomOf(progress), scale=Math.min(1.9,(CW-90)/g.L);
+  const Lpx=g.L*scale, x0=(CW-Lpx)/2, cy=CH*0.46;
+  for(let i=0;i<3;i++) steam.push({x:x0+Math.random()*Lpx,y:cy+(Math.random()-0.5)*10,vx:(Math.random()-0.5)*0.4,vy:-0.6-Math.random()*0.7,r:3+Math.random()*4,life:0.5+Math.random()*0.5});
+}
+function drawSection(bx,by,bw,bh,g,col,d){
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,0.18)';
+  ctx.strokeStyle='rgba(130,142,158,0.35)';
+  ctx.beginPath();ctx.roundRect(bx,by,bw,bh,8);ctx.fill();ctx.stroke();
+  ctx.fillStyle='rgba(150,162,178,0.9)';ctx.font='11px system-ui';ctx.textAlign='left';
+  ctx.fillText('截面形状', bx+10, by+16);
+  const cx=bx+bw/2, cy2=by+bh/2+6;
+  const w=g.W*3.1, t=g.T*3.1, k=progress.edge;
+  ctx.beginPath();
+  ctx.moveTo(cx-w/2, cy2-t/2+ (1-k)*t*0.2);
+  ctx.quadraticCurveTo(cx, cy2-t/2-(1-k)*t*0.35, cx+w/2, cy2-t/2+(1-k)*t*0.2);
+  ctx.lineTo(cx+w/2, cy2+t/2-(1-k)*t*0.2);
+  ctx.quadraticCurveTo(cx, cy2+t/2+k*t*0.55, cx-w/2, cy2+t/2-(1-k)*t*0.2);
+  ctx.closePath();
+  ctx.fillStyle=col;ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.4)';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle='rgba(150,162,178,0.9)';ctx.font='10.5px system-ui';ctx.textAlign='center';
+  ctx.fillText(`宽 ${g.W.toFixed(1)}mm · 厚 ${g.T.toFixed(1)}mm`, cx, by+bh-8);
+  if(executed[3]){
+    ctx.textAlign='left';
+    ctx.fillStyle=d.cracks>0?'#e05555':'#8fb8e8';
+    ctx.fillText(`硬度 HRC ${d.hrc}`, bx+10, by+32);
+  }
+  ctx.restore();
+}
+
+/* ---------------- 工位条 ---------------- */
+const stationsEl=document.getElementById('stations');
+function renderStations(){
+  stationsEl.innerHTML='';
+  STATIONS.forEach((s,i)=>{
+    if(i>0){const a=document.createElement('span');a.className='arrow';a.textContent='→';stationsEl.appendChild(a);}
+    const reachable = i===0 || executed[i-1];
+    const el=document.createElement('div');
+    el.className='st'+(executed[i]?' done':'')+(selected===i?' sel':'')+(reachable?'':' locked');
+    el.innerHTML=`<span class="num">${executed[i]?'✓':i+1}</span><span><span class="nm">${s.name}</span><br><span class="sub">${s.sub}</span></span>`;
+    el.onclick=()=>{ if(reachable && !busy){selected=i;renderStations();renderPanel();} };
+    stationsEl.appendChild(el);
+  });
+}
+
+/* ---------------- 侧栏面板 ---------------- */
+const panel=document.getElementById('panel');
+function renderPanel(){
+  const d=derive();
+  let h='';
+  const execLabel = i => executed[i] ? '重新执行（后续工序将重算）' : '执行';
+  if(selected===0){
+    h=`<h2>① 坯料</h2>
+      <p class="note">45 号钢坯：长 220mm × 宽 30mm × 厚 8mm。表面粗糙带氧化皮，需经加热、锻打、淬火、开刃四道工序成为击剑剑身。</p>
+      <button class="exec" id="go1">前往加热 →</button>`;
+  }else if(selected===1){
+    h=`<h2>② 加热 · 选择炉温</h2>`+HEATS.map((o,i)=>
+      `<div class="opt${params.heat===i?' sel':''}" data-k="heat" data-v="${i}"><b>${o.name}</b><span>${o.note}</span></div>`).join('')
+      +`<button class="exec" data-exec="1">${execLabel(1)}</button>`;
+  }else if(selected===2){
+    const over=params.strikes>SAFE_STRIKES, under=params.strikes<8;
+    h=`<h2>③ 锻打 · 锤击次数</h2>
+      <input type="range" id="strikeRange" min="0" max="40" step="1" value="${params.strikes}">
+      <p class="note">锤击 <b id="strikeN">${params.strikes}</b> 次 —— 每锤延展约 5mm、减薄约 0.16mm（受炉温效率影响）。安全上限 ${SAFE_STRIKES} 次。</p>
+      ${over?`<p class="warnline">⚠ 超过安全上限 ${params.strikes-SAFE_STRIKES} 锤：脆性 +${((params.strikes-SAFE_STRIKES)*0.08).toFixed(2)}，淬火时可能开裂</p>`:''}
+      ${under?`<p class="warnline">⚠ 锻打不足 8 锤，剑身将无法成形</p>`:''}
+      <button class="exec" data-exec="2">${executed[2]?'重新锻打（后续重算）':`开始锻打 ${params.strikes} 锤`}</button>`;
+  }else if(selected===3){
+    const riskTxt = d.idx>=CRACK_THRESHOLD?['开裂风险：高 —— 按当前参数淬火将出现裂纹','dangerline']
+      : d.idx>=0.35?['开裂风险：临界 —— 再快一点就会开裂','warnline']
+      : ['开裂风险：低','okline'];
+    h=`<h2>④ 淬火 · 冷却速度</h2>`+COOLS.map((o,i)=>
+      `<div class="opt${params.cool===i?' sel':''}" data-k="cool" data-v="${i}"><b>${o.name}</b><span>${o.note}</span></div>`).join('')
+      +`<p class="note">当前脆性 ${d.B.toFixed(2)} ＋ 冷却风险 ${COOLS[params.cool].risk.toFixed(2)} ＝ 开裂指数 <b>${d.idx.toFixed(2)}</b>（阈值 ${CRACK_THRESHOLD.toFixed(2)}）<br>预计硬度 HRC ${d.hrc}</p>
+      <p class="${riskTxt[1]}">${riskTxt[0]}</p>
+      <button class="exec" data-exec="3">${execLabel(3)}</button>`;
+  }else{
+    h=`<h2>⑤ 开刃 · 精磨</h2>`+EDGES.map((o,i)=>
+      `<div class="opt${params.edge===i?' sel':''}" data-k="edge" data-v="${i}"><b>${o.name}</b><span>${o.note}</span></div>`).join('')
+      +`<button class="exec" data-exec="4">${execLabel(4)}</button>
+      <p class="note">执行后生成成品报告。若淬火已开裂，开刃无法修复。</p>`;
+  }
+  h+=`<dl>
+    <dt>长度</dt><dd>${geomOf(progress).L.toFixed(0)} mm</dd>
+    <dt>宽度</dt><dd>${geomOf(progress).W.toFixed(1)} mm</dd>
+    <dt>厚度</dt><dd>${geomOf(progress).T.toFixed(1)} mm</dd>
+    <dt>脆性指数</dt><dd>${d.B.toFixed(2)}</dd>
+    <dt>开裂指数 / 阈值</dt><dd>${d.idx.toFixed(2)} / ${CRACK_THRESHOLD.toFixed(2)}</dd>
+    <dt>硬度</dt><dd>${executed[3]?('HRC '+d.hrc):'—（淬火后测定）'}</dd>
+    <dt>裂纹</dt><dd>${executed[3]?(d.cracks>0?`<span style="color:var(--danger)">${d.cracks} 条</span>`:'无'):'—'}</dd>
+  </dl>`;
+  panel.innerHTML=h;
+
+  panel.querySelectorAll('.opt').forEach(el=>el.onclick=()=>{
+    params[el.dataset.k]=+el.dataset.v; renderPanel();
+  });
+  const rg=document.getElementById('strikeRange');
+  if(rg) rg.oninput=()=>{params.strikes=+rg.value; renderPanel();};
+  const go1=document.getElementById('go1');
+  if(go1) go1.onclick=()=>{selected=1;renderStations();renderPanel();};
+  panel.querySelectorAll('[data-exec]').forEach(b=>b.onclick=()=>execute(+b.dataset.exec));
+}
+
+/* ---------------- 执行与重算 ---------------- */
+const logEl=document.getElementById('log');
+function log(html){
+  const li=document.createElement('li');li.innerHTML=html;
+  logEl.prepend(li);
+  while(logEl.children.length>30) logEl.lastChild.remove();
+}
+function describe(i){
+  return ['',HEATS[params.heat].name,`锤击 ${params.strikes} 次`,COOLS[params.cool].name,EDGES[params.edge].name][i];
+}
+async function execute(i){
+  if(busy) return;
+  const reexec=executed[i];
+  executed[i]=true;
+  log(`<b>${STATIONS[i].name}</b>：${describe(i)}${reexec?'（参数变更，后续工序重算）':''}`);
+  enqueueStages();
+  if(i<4 && !executed.slice(i+1).every(Boolean)) selected=i+1;
+  renderStations(); renderPanel();
+  await runQueue();
+  if(executed[3]){
+    const d=derive();
+    log(d.cracks>0
+      ? `淬火结果：开裂指数 ${d.idx.toFixed(2)} ≥ ${CRACK_THRESHOLD.toFixed(2)}，<span style="color:var(--danger)">出现 ${d.cracks} 条裂纹</span>，硬度 HRC ${d.hrc}`
+      : `淬火结果：开裂指数 ${d.idx.toFixed(2)} &lt; ${CRACK_THRESHOLD.toFixed(2)}，无裂纹，硬度 HRC ${d.hrc}`);
+  }
+  renderStations(); renderPanel(); renderReport();
+}
+
+/* ---------------- 成品报告 ---------------- */
+const reportEl=document.getElementById('report');
+function renderReport(){
+  if(!executed[4] || busy){reportEl.hidden=true;return;}
+  const d=derive(), r=rating(d), g=geomOf(progress);
+  reportEl.hidden=false;
+  reportEl.innerHTML=`<h3>成品报告</h3>
+    <div class="grade" style="color:${r.c}">${r.t}</div>
+    <p>长度 ${g.L.toFixed(0)}mm · 宽 ${g.W.toFixed(1)}mm · 厚 ${g.T.toFixed(1)}mm · 硬度 HRC ${d.hrc} · 裂纹 ${d.cracks} 条 · 刃型 ${EDGES[params.edge].name}</p>
+    <p>${r.note}</p>`;
+}
+
+/* ---------------- 预设路线 / 回放 / 重置 ---------------- */
+async function autoRun(){
+  for(let i=1;i<=4;i++){
+    executed[i]=true;
+    log(`<b>${STATIONS[i].name}</b>：${describe(i)}`);
+    enqueueStages();
+    renderStations();
+    await runQueue();
+  }
+  const d=derive();
+  log(d.cracks>0
+    ? `结果：<span style="color:var(--danger)">淬火开裂 ${d.cracks} 条</span>（指数 ${d.idx.toFixed(2)}）`
+    : `结果：无裂纹，硬度 HRC ${d.hrc}（开裂指数 ${d.idx.toFixed(2)}）`);
+  renderStations(); renderPanel(); renderReport();
+}
+function reset(silent){
+  params={heat:1, strikes:18, cool:1, edge:0};
+  executed=[true,false,false,false,false];
+  progress={heat:0,strikes:0,quench:0,edge:0};
+  queue=[]; currentAnim=null; busy=false;
+  selected=0; sparks=[]; steam=[];
+  if(!silent) logEl.innerHTML='';
+  reportEl.hidden=true;
+  renderStations(); renderPanel();
+}
+document.getElementById('reset').onclick=()=>{reset();log('已重置为钢坯。');};
+document.getElementById('replay').onclick=async()=>{
+  if(busy) return;
+  progress={heat:0,strikes:0,quench:0,edge:0};
+  log('▶ 回放当前工序路线……');
+  enqueueStages();
+  await runQueue();
+  renderReport();
+};
+document.getElementById('presetA').onclick=()=>{
+  reset(true);
+  Object.assign(params,{heat:1, strikes:18, cool:1, edge:0});
+  log('载入 <b>路线 A · 顺利成品</b>：中温加热 → 锻打 18 锤 → 油淬（中）→ 标准刃');
+  autoRun();
+};
+document.getElementById('presetB').onclick=async()=>{
+  reset(true);
+  Object.assign(params,{heat:1, strikes:23, cool:2, edge:0});
+  log('载入 <b>路线 B · 临界对比</b>：中温加热 → 锻打 23 锤（超安全上限 3 锤）→ 水冷（快）→ 标准刃');
+  await autoRun();
+  selected=3;
+  renderStations(); renderPanel();
+  log(`当前开裂指数 <b>${derive().idx.toFixed(2)}</b>，距阈值 ${CRACK_THRESHOLD.toFixed(2)} 仅一步之遥 —— 已在「淬火」工位待命：把冷却改为 <b>盐水 · 极快</b> 看裂纹出现，或回「锻打」减到 ${SAFE_STRIKES} 锤以内看裂纹消失。`);
+};
+
+/* ---------------- 主循环 ---------------- */
+function loop(now){ draw(now); requestAnimationFrame(loop); }
+renderStations(); renderPanel();
+requestAnimationFrame(loop);
+</script>
