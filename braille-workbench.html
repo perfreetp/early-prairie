@@ -1,0 +1,473 @@
+<title>盲文制版工作台</title>
+<style>
+  :root{
+    --bg:#eceff3; --panel:#ffffff; --fg:#1e2833; --muted:#5d6d7d;
+    --accent:#2f6fed; --accent-soft:#e3ecfd; --danger:#d63c32; --danger-soft:#fdeceb;
+    --warn:#b07800; --warn-soft:#fdf4e0; --line:#dbe2ea; --chip:#f0f3f7;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#12161b; --panel:#1b222b; --fg:#e4eaf1; --muted:#8b9cad;
+      --accent:#5b8cff; --accent-soft:#22304a; --danger:#ff6f64; --danger-soft:#3a2220;
+      --warn:#e0a83c; --warn-soft:#38301c; --line:#2b3540; --chip:#242d38;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#12161b; --panel:#1b222b; --fg:#e4eaf1; --muted:#8b9cad;
+    --accent:#5b8cff; --accent-soft:#22304a; --danger:#ff6f64; --danger-soft:#3a2220;
+    --warn:#e0a83c; --warn-soft:#38301c; --line:#2b3540; --chip:#242d38;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;}
+  #app{display:flex; height:100vh; overflow:hidden;}
+  aside{
+    width:330px; flex:0 0 auto; background:var(--panel); border-right:1px solid var(--line);
+    padding:18px 18px 24px; overflow-y:auto; display:flex; flex-direction:column; gap:14px;
+  }
+  h1{font-size:17px; margin:0; letter-spacing:.5px;}
+  .sub{font-size:12px; color:var(--muted); margin:-8px 0 0;}
+  .card{background:var(--chip); border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
+  .card h2{font-size:12px; color:var(--muted); margin:0 0 10px; font-weight:600; letter-spacing:1px;}
+  .preset-btns{display:flex; gap:8px;}
+  .preset-btns button{
+    flex:1; padding:9px 6px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel); color:var(--fg); font-size:13px; cursor:pointer;
+  }
+  .preset-btns button.active{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;}
+  .preset-desc{font-size:11.5px; color:var(--muted); margin-top:8px; line-height:1.5;}
+  .slider-row{margin-bottom:14px;}
+  .slider-row:last-child{margin-bottom:0;}
+  .slider-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;}
+  .slider-head label{font-size:13px; font-weight:600;}
+  .slider-head .val{font-size:13px; font-variant-numeric:tabular-nums; color:var(--accent); font-weight:700;}
+  .slider-head .val.bad{color:var(--danger);}
+  .slider-head .val.warn{color:var(--warn);}
+  input[type=range]{width:100%; accent-color:var(--accent);}
+  .ticks{display:flex; justify-content:space-between; font-size:10px; color:var(--muted); margin-top:1px;}
+  .chain-note{font-size:11px; color:var(--muted); margin-top:2px;}
+  .stats{display:grid; grid-template-columns:1fr 1fr; gap:7px 10px;}
+  .stat{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 10px;}
+  .stat .k{font-size:10.5px; color:var(--muted);}
+  .stat .v{font-size:15px; font-weight:700; font-variant-numeric:tabular-nums;}
+  .stat .v small{font-size:10px; font-weight:400; color:var(--muted);}
+  .stat .v.bad{color:var(--danger);}
+  .cmp-row{display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:12px;}
+  .cmp-row:last-child{margin-bottom:0;}
+  .cmp-row .name{width:64px; flex:0 0 auto; color:var(--muted);}
+  .cmp-row .bar-wrap{flex:1; height:14px; background:var(--panel); border:1px solid var(--line); border-radius:7px; overflow:hidden; min-width:0;}
+  .cmp-row .bar{height:100%; background:var(--accent); border-radius:7px; transition:width .25s;}
+  .cmp-row.cmp .bar{background:var(--warn);}
+  .cmp-row .num{width:86px; flex:0 0 auto; text-align:right; font-variant-numeric:tabular-nums; font-weight:600;}
+  .cmp-diff{font-size:12px; color:var(--accent); font-weight:600; margin-top:4px;}
+  #warnBox{
+    background:var(--danger-soft); border:1px solid var(--danger); border-radius:10px;
+    padding:12px 14px; font-size:12.5px; line-height:1.65;
+  }
+  #warnBox b{color:var(--danger);}
+  #warnBox .braille-sample{font-size:20px; letter-spacing:2px; margin:6px 0 2px; color:var(--danger);}
+  #amberBox{
+    background:var(--warn-soft); border:1px solid var(--warn); border-radius:10px;
+    padding:10px 14px; font-size:12px; line-height:1.6; color:var(--fg);
+  }
+  #fitBtn{
+    padding:9px; border-radius:8px; border:1px solid var(--line); background:var(--panel);
+    color:var(--fg); font-size:13px; cursor:pointer;
+  }
+  #fitBtn:hover{border-color:var(--accent); color:var(--accent);}
+  .hint{font-size:11px; color:var(--muted); line-height:1.6; margin:0;}
+  #stage{flex:1; position:relative; min-width:0;}
+  #stage canvas{display:block;}
+  #zoomTag{
+    position:absolute; right:12px; bottom:10px; font-size:11px; color:var(--muted);
+    background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:3px 8px;
+    pointer-events:none; font-variant-numeric:tabular-nums;
+  }
+  @media (max-width:760px){
+    #app{flex-direction:column;}
+    aside{width:100%; flex:0 0 auto; max-height:46vh; border-right:none; border-bottom:1px solid var(--line);}
+    #stage{flex:1;}
+  }
+</style>
+
+<div id="app">
+  <aside>
+    <h1>盲文制版工作台</h1>
+    <p class="sub">GB/T 15720 参数联动 · PixiJS + pixi-viewport</p>
+
+    <div class="card">
+      <h2>样张预置</h2>
+      <div class="preset-btns">
+        <button id="btnStd" class="active">标准盲文样张</button>
+        <button id="btnCmp">简化字距对照页</button>
+      </div>
+      <div class="preset-desc" id="presetDesc"></div>
+    </div>
+
+    <div class="card">
+      <h2>版面参数</h2>
+      <div class="slider-row">
+        <div class="slider-head">
+          <label for="sDot">点径（凸点直径）</label>
+          <span class="val" id="vDot"></span>
+        </div>
+        <input type="range" id="sDot" min="0.85" max="1.60" step="0.05" value="1.50">
+        <div class="ticks"><span>0.85</span><span>国标下限 1.00</span><span>1.60</span></div>
+      </div>
+      <div class="slider-row">
+        <div class="slider-head">
+          <label for="sEmboss">浮雕高度（点高）</label>
+          <span class="val" id="vEmboss"></span>
+        </div>
+        <input type="range" id="sEmboss" min="0.10" max="0.60" step="0.05" value="0.30">
+        <div class="ticks"><span>0.10</span><span>国标 0.20–0.50</span><span>0.60</span></div>
+      </div>
+      <div class="slider-row">
+        <div class="slider-head">
+          <label for="sLine">行距（行间附加净距）</label>
+          <span class="val" id="vLine"></span>
+        </div>
+        <input type="range" id="sLine" min="2.00" max="9.00" step="0.25" value="5.00">
+        <div class="ticks"><span>2.0</span><span>国标约 5.0</span><span>9.0</span></div>
+        <div class="chain-note">点距 = 点径 × 5/3（国标比例）→ 字距、行距随之连锁重排</div>
+      </div>
+    </div>
+
+    <div id="warnBox" hidden></div>
+    <div id="amberBox" hidden></div>
+
+    <div class="card">
+      <h2>联动排版结果</h2>
+      <div class="stats">
+        <div class="stat"><div class="k">点距（连锁）</div><div class="v" id="stPitch"></div></div>
+        <div class="stat"><div class="k">字距 / 方距（连锁）</div><div class="v" id="stCell"></div></div>
+        <div class="stat"><div class="k">行距实际（连锁）</div><div class="v" id="stLine"></div></div>
+        <div class="stat"><div class="k">点间净距</div><div class="v" id="stClear"></div></div>
+        <div class="stat"><div class="k">每行字数</div><div class="v" id="stCpl"></div></div>
+        <div class="stat"><div class="k">每页行数</div><div class="v" id="stLpp"></div></div>
+        <div class="stat"><div class="k">总页数</div><div class="v" id="stPages"></div></div>
+        <div class="stat"><div class="k">总字数</div><div class="v" id="stTotal"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>两种排布容量比对（当前点径下）</h2>
+      <div class="cmp-row"><span class="name">标准样张</span><div class="bar-wrap"><div class="bar" id="barStd"></div></div><span class="num" id="numStd"></span></div>
+      <div class="cmp-row cmp"><span class="name">简化字距</span><div class="bar-wrap"><div class="bar" id="barCmp"></div></div><span class="num" id="numCmp"></span></div>
+      <div class="cmp-diff" id="cmpDiff"></div>
+    </div>
+
+    <button id="fitBtn">复位视图</button>
+    <p class="hint">滚轮缩放 · 拖拽平移 · 双指捏合（触屏）。缩小超过阈值后自动隐藏点间辅助线，凸点切换为轮廓显示以保证流畅。</p>
+  </aside>
+  <div id="stage"><div id="zoomTag"></div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.2/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi-viewport@5.0.2/dist/pixi_viewport.umd.cjs"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 国标与版式常量（单位：mm） ---------- */
+  var GB = { D_MIN:1.0, D_MAX:1.6, RATIO:2.5/1.5, PITCH_MIN:2.2, PITCH_MAX:2.8, H_MIN:0.2, H_MAX:0.5 };
+  var PAGE = { w:280, h:270, m:18, gap:14 };           // 盲文纸版面与页间间隔
+  var PRESETS = {
+    std: { label:"标准盲文样张", gapRatio:1.4,
+           desc:"字间距 = 点距 × 1.4（标准点距 2.5mm 时字间距 3.5mm，方距 6.0mm），符合国标标准排布。" },
+    compact: { label:"简化字距对照页", gapRatio:1.0,
+           desc:"字间距 = 点距 × 1.0（标准点距时字间距 2.5mm，方距 5.0mm）的紧凑对照排布，用于比对每行容量差异。" }
+  };
+
+  var state = { dotD:1.50, emboss:0.30, lineGap:5.00, preset:"std" };
+
+  /* ---------- 样张文本（一级盲文 / uncontracted） ---------- */
+  var BR = {a:1,b:3,c:9,d:25,e:17,f:11,g:27,h:19,i:10,j:26,k:5,l:7,m:13,n:29,o:21,
+            p:15,q:31,r:23,s:14,t:30,u:37,v:39,w:58,x:45,y:61,z:53," ":0,".":50,",":2};
+  var SENTENCE = "the quick brown fox jumps over the lazy dog. " +
+                 "braille is a tactile writing system read by touch. " +
+                 "each cell holds six dots in two columns of three. ";
+  var SAMPLE = ""; for (var i=0;i<12;i++) SAMPLE += SENTENCE;
+  var CELLS = []; for (var j=0;j<SAMPLE.length;j++) CELLS.push(BR[SAMPLE[j]] || 0);
+  var TOTAL = CELLS.length;
+
+  /* ---------- 参数联动推导 ---------- */
+  function derive(presetKey){
+    var pitch   = state.dotD * GB.RATIO;                 // 点距随点径按国标比例联动
+    var cellGap = pitch * PRESETS[presetKey].gapRatio;   // 字间距随点距联动
+    var cellAdv = pitch + cellGap;                       // 方距（字距）
+    var linePitch = 2*pitch + state.lineGap;             // 行距实际值随点距联动
+    var uw = PAGE.w - 2*PAGE.m, uh = PAGE.h - 2*PAGE.m;
+    var cpl = Math.max(1, Math.floor((uw + cellGap) / cellAdv));
+    var lpp = Math.max(1, Math.floor((uh + state.lineGap) / linePitch));
+    return { pitch:pitch, cellGap:cellGap, cellAdv:cellAdv, linePitch:linePitch,
+             cpl:cpl, lpp:lpp, perPage:cpl*lpp, clearance:pitch - state.dotD };
+  }
+
+  /* ---------- Pixi 初始化 ---------- */
+  var stage = document.getElementById("stage");
+  var dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  var app = new PIXI.Application({
+    background: dark ? 0x12161b : 0xeceff3,
+    resizeTo: stage, antialias: true
+  });
+  stage.appendChild(app.view);
+
+  var viewport = new pixi_viewport.Viewport({
+    screenWidth: stage.clientWidth, screenHeight: stage.clientHeight,
+    worldWidth: PAGE.w, worldHeight: PAGE.h,
+    ticker: app.ticker, events: app.renderer.events
+  });
+  app.stage.addChild(viewport);
+  viewport.drag().pinch().wheel({percent:0.12}).decelerate({friction:0.92})
+          .clampZoom({minScale:0.15, maxScale:30});
+
+  var bgLayer      = new PIXI.Container();  // 纸张
+  var markerLayer  = new PIXI.Container();  // 标红行
+  var guidesLayer  = new PIXI.Container();  // 点间辅助线
+  var dotsLayer    = new PIXI.Container();  // 凸点
+  var labelsLayer  = new PIXI.Container();  // 页码标注
+  viewport.addChild(bgLayer, markerLayer, guidesLayer, dotsLayer, labelsLayer);
+
+  /* ---------- 凸点纹理（浮雕高度决定投影偏移） ---------- */
+  var TEX = 96, BODY = 0.78;
+  var texSolid = null, texOutline = null, detailMode = true;
+  function buildTextures(){
+    if (texSolid) texSolid.destroy(true);
+    var hN = (state.emboss - 0.10) / 0.50;              // 0..1
+    var off = 2 + hN * 8, c = TEX/2, r = TEX*BODY/2;
+    var g = new PIXI.Graphics();
+    g.beginFill(0x0e151d, 0.45).drawCircle(c+off, c+off*1.2, r).endFill();      // 投影
+    g.beginFill(0xffffff, 1).drawCircle(c, c, r).endFill();                      // 点体（染色基底）
+    g.beginFill(0x22303f, 0.30).drawCircle(c+off*0.55, c+off*0.65, r*0.70).endFill(); // 背光面
+    g.beginFill(0xffffff, 0.95).drawCircle(c-off*0.7, c-off*0.75, r*0.36).endFill();  // 高光
+    texSolid = app.renderer.generateTexture(g);
+    g.destroy();
+    if (!texOutline){
+      var g2 = new PIXI.Graphics();
+      g2.lineStyle(7, 0xffffff, 1).drawCircle(c, c, r-4);   // 远观轮廓
+      texOutline = app.renderer.generateTexture(g2);
+      g2.destroy();
+    }
+  }
+
+  /* ---------- 凸点精灵池 ---------- */
+  var dotPool = [];
+  function getDot(){
+    var s = dotPool.pop();
+    if (!s){ s = new PIXI.Sprite(texSolid); s.anchor.set(0.5); }
+    return s;
+  }
+
+  /* ---------- 重排与重绘 ---------- */
+  var bgG = new PIXI.Graphics(), markerG = new PIXI.Graphics(), guideG = new PIXI.Graphics();
+  bgLayer.addChild(bgG); markerLayer.addChild(markerG); guidesLayer.addChild(guideG);
+
+  function rebuild(){
+    var d = derive(state.preset);
+    var invalid = state.dotD < GB.D_MIN - 1e-9;
+    var nPages = Math.max(1, Math.ceil(TOTAL / d.perPage));
+
+    // 回收旧凸点
+    while (dotsLayer.children.length){
+      var s0 = dotsLayer.removeChildAt(0);
+      dotPool.push(s0);
+    }
+    labelsLayer.removeChildren().forEach(function(t){ t.destroy(); });
+    bgG.clear(); markerG.clear(); guideG.clear();
+
+    var dotSize = state.dotD / BODY;
+    var dotTint = invalid ? 0xd63c32 : 0x2c3a49;
+    var tex = detailMode ? texSolid : texOutline;
+
+    for (var p=0; p<nPages; p++){
+      var py = p * (PAGE.h + PAGE.gap);
+
+      // 纸张
+      bgG.beginFill(0x000000, 0.10).drawRoundedRect(2.5, py+3.5, PAGE.w, PAGE.h, 3).endFill();
+      bgG.beginFill(0xffffff, 1).drawRoundedRect(0, py, PAGE.w, PAGE.h, 3).endFill();
+      bgG.lineStyle(0.3, 0xb9c4cf, 1).drawRoundedRect(0, py, PAGE.w, PAGE.h, 3);
+      bgG.lineStyle(0);
+
+      // 标红行（点径低于国标下限：整行标红而非放任重叠）
+      if (invalid){
+        var bandH = 2*d.pitch + d.pitch*1.2;
+        for (var l=0; l<d.lpp; l++){
+          var ly = py + PAGE.m + l*d.linePitch;
+          markerG.beginFill(0xd63c32, 0.13)
+                 .drawRect(PAGE.m-4, ly - d.pitch*0.6, PAGE.w - 2*PAGE.m + 8, bandH)
+                 .endFill();
+          markerG.beginFill(0xd63c32, 0.85)
+                 .drawRect(PAGE.m-4, ly - d.pitch*0.6, 1.6, bandH)
+                 .endFill();
+        }
+      }
+
+      // 点间辅助线（点位列/行网格）
+      var xRight = PAGE.m + (d.cpl-1)*d.cellAdv + d.pitch;
+      var yBot   = py + PAGE.m + (d.lpp-1)*d.linePitch + 2*d.pitch;
+      guideG.lineStyle(0.16, 0x8fa5bb, 0.5);
+      for (var cI=0; cI<d.cpl; cI++){
+        for (var col=0; col<2; col++){
+          var gx = PAGE.m + cI*d.cellAdv + col*d.pitch;
+          guideG.moveTo(gx, py+PAGE.m).lineTo(gx, yBot);
+        }
+      }
+      for (var l2=0; l2<d.lpp; l2++){
+        for (var row=0; row<3; row++){
+          var gy = py + PAGE.m + l2*d.linePitch + row*d.pitch;
+          guideG.moveTo(PAGE.m, gy).lineTo(xRight, gy);
+        }
+      }
+      guideG.lineStyle(0);
+
+      // 凸点
+      var base = p * d.perPage;
+      for (var l3=0; l3<d.lpp; l3++){
+        for (var c3=0; c3<d.cpl; c3++){
+          var ci = base + l3*d.cpl + c3;
+          if (ci >= TOTAL) break;
+          var mask = CELLS[ci];
+          if (!mask) continue;
+          var cx = PAGE.m + c3*d.cellAdv;
+          var cy = py + PAGE.m + l3*d.linePitch;
+          for (var bit=0; bit<6; bit++){
+            if (!((mask>>bit)&1)) continue;
+            var sp = getDot();
+            sp.texture = tex;
+            sp.tint = dotTint;
+            sp.width = sp.height = dotSize;
+            sp.position.set(cx + (bit<3?0:d.pitch), cy + (bit%3)*d.pitch);
+            dotsLayer.addChild(sp);
+          }
+        }
+      }
+
+      // 页标注
+      var label = new PIXI.Text(
+        "第 " + (p+1) + " / " + nPages + " 页 · 每行 " + d.cpl + " 字 · 每页 " + d.lpp + " 行",
+        { fontSize:5, fill: dark ? 0x8b9cad : 0x5d6d7d, fontFamily:"system-ui, sans-serif" });
+      label.position.set(PAGE.m, py + PAGE.h + 3.5);
+      labelsLayer.addChild(label);
+    }
+
+    viewport.worldWidth = PAGE.w;
+    viewport.worldHeight = nPages*(PAGE.h+PAGE.gap);
+
+    updatePanel(d, invalid, nPages);
+  }
+
+  /* ---------- 左侧面板 ---------- */
+  var $ = function(id){ return document.getElementById(id); };
+  function fmt(x){ return x.toFixed(2); }
+
+  function updatePanel(d, invalid, nPages){
+    $("vDot").textContent = fmt(state.dotD) + " mm";
+    $("vDot").className = "val" + (invalid ? " bad" : (d.pitch < GB.PITCH_MIN ? " warn" : ""));
+    $("vEmboss").textContent = fmt(state.emboss) + " mm";
+    $("vEmboss").className = "val" + ((state.emboss<GB.H_MIN||state.emboss>GB.H_MAX) ? " warn" : "");
+    $("vLine").textContent = fmt(state.lineGap) + " mm";
+
+    $("stPitch").innerHTML = fmt(d.pitch) + " <small>mm</small>";
+    $("stPitch").className = "v" + ((d.pitch<GB.PITCH_MIN||d.pitch>GB.PITCH_MAX) ? " bad" : "");
+    $("stCell").innerHTML  = fmt(d.cellAdv) + " <small>mm</small>";
+    $("stLine").innerHTML  = fmt(d.linePitch) + " <small>mm</small>";
+    $("stClear").innerHTML = fmt(d.clearance) + " <small>mm</small>";
+    $("stClear").className = "v" + (d.clearance < 0.6 ? " bad" : "");
+    $("stCpl").innerHTML   = d.cpl + " <small>字</small>";
+    $("stLpp").innerHTML   = d.lpp + " <small>行</small>";
+    $("stPages").innerHTML = nPages + " <small>页</small>";
+    $("stTotal").innerHTML = TOTAL + " <small>字</small>";
+
+    // 标红 + 可读性试读提示
+    var warn = $("warnBox");
+    if (invalid){
+      warn.hidden = false;
+      warn.innerHTML =
+        "<b>⚠ 点径 " + fmt(state.dotD) + " mm 低于国标下限 1.00 mm，整页行已标红。</b><br>" +
+        "连锁点距 " + fmt(d.pitch) + " mm（国标 2.20–2.80），点间净距仅 " + fmt(d.clearance) +
+        " mm，已低于触觉分辨安全余量（≈0.60 mm），凸点濒临粘连，系统不予放行重叠版面。<br>" +
+        "<b>可读性试读：</b>指尖滑过标红行时相邻凸点难以分辨，试读样本" +
+        "<span class='braille-sample'>⠞⠓⠑ ⠟⠥⠊⠉⠅</span>（the quick）" +
+        "将糊作一团、误读率显著上升。请将点径回调至 ≥ 1.00 mm。";
+    } else warn.hidden = true;
+
+    //  amber：点距或点高超出国标推荐区间
+    var amber = $("amberBox"), notes = [];
+    if (!invalid && (d.pitch < GB.PITCH_MIN || d.pitch > GB.PITCH_MAX))
+      notes.push("连锁点距 " + fmt(d.pitch) + " mm 超出国标推荐区间 2.20–2.80 mm。");
+    if (state.emboss < GB.H_MIN || state.emboss > GB.H_MAX)
+      notes.push("浮雕高度 " + fmt(state.emboss) + " mm 超出国标推荐区间 0.20–0.50 mm。");
+    if (notes.length){ amber.hidden = false; amber.innerHTML = "⚠ " + notes.join("<br>⚠ "); }
+    else amber.hidden = true;
+
+    // 两种排布容量比对
+    var dS = derive("std"), dC = derive("compact");
+    var pS = Math.ceil(TOTAL/dS.perPage), pC = Math.ceil(TOTAL/dC.perPage);
+    var maxC = Math.max(dS.cpl, dC.cpl);
+    $("barStd").style.width = (dS.cpl/maxC*100) + "%";
+    $("barCmp").style.width = (dC.cpl/maxC*100) + "%";
+    $("numStd").textContent = dS.cpl + " 字/行";
+    $("numCmp").textContent = dC.cpl + " 字/行";
+    $("cmpDiff").textContent = "简化字距每行多容 " + (dC.cpl-dS.cpl) + " 字 · 全文 "
+      + pS + " 页 → " + pC + " 页";
+
+    $("presetDesc").textContent = PRESETS[state.preset].desc;
+    $("btnStd").className = state.preset==="std" ? "active" : "";
+    $("btnCmp").className = state.preset==="compact" ? "active" : "";
+  }
+
+  /* ---------- 缩放阈值：隐藏辅助线、凸点转轮廓 ---------- */
+  var fitScale = 1, guideThreshold = 1;
+  function applyZoomMode(){
+    var s = viewport.scale.x;
+    var detail = s >= guideThreshold;
+    if (detail !== detailMode){
+      detailMode = detail;
+      guidesLayer.visible = detail;
+      var tex = detail ? texSolid : texOutline;
+      for (var i=0;i<dotsLayer.children.length;i++) dotsLayer.children[i].texture = tex;
+    }
+    $("zoomTag").textContent = "缩放 " + Math.round(s*100) + "%" + (detail ? "" : " · 辅助线已隐藏");
+  }
+  viewport.on("zoomed", applyZoomMode);
+
+  function fitView(){
+    var sw = stage.clientWidth, sh = stage.clientHeight;
+    fitScale = Math.min(sw/(PAGE.w+50), sh/(PAGE.h+70));
+    guideThreshold = fitScale * 0.45;
+    viewport.setZoom(fitScale, true);
+    viewport.moveCenter(PAGE.w/2, PAGE.h/2);
+    applyZoomMode();
+  }
+
+  /* ---------- 事件 ---------- */
+  var rafPending = false;
+  function scheduleRebuild(){
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(function(){ rafPending = false; rebuild(); });
+  }
+  $("sDot").addEventListener("input", function(e){ state.dotD = parseFloat(e.target.value); scheduleRebuild(); });
+  $("sLine").addEventListener("input", function(e){ state.lineGap = parseFloat(e.target.value); scheduleRebuild(); });
+  $("sEmboss").addEventListener("input", function(e){
+    state.emboss = parseFloat(e.target.value);
+    buildTextures();
+    if (detailMode) for (var i=0;i<dotsLayer.children.length;i++) dotsLayer.children[i].texture = texSolid;
+    scheduleRebuild();
+  });
+  $("btnStd").addEventListener("click", function(){ state.preset = "std"; rebuild(); });
+  $("btnCmp").addEventListener("click", function(){ state.preset = "compact"; rebuild(); });
+  $("fitBtn").addEventListener("click", fitView);
+
+  new ResizeObserver(function(){
+    viewport.resize(stage.clientWidth, stage.clientHeight);
+  }).observe(stage);
+
+  /* ---------- 启动 ---------- */
+  buildTextures();
+  rebuild();
+  fitView();
+})();
+</script>
