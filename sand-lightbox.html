@@ -1,0 +1,458 @@
+<title>沙画灯箱沙台模拟</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root{
+    --bg:#eef1f5; --panel:#ffffff; --ink:#1b1e23; --muted:#5d646e; --line:#d9dee6;
+    --accent:#0b7fd1; --accent-soft:#dceffa; --warm:#e8862e; --cold:#3f7fd6;
+    --probe-a:#ff6b4a; --probe-b:#34c98b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1013; --panel:#171b21; --ink:#e9ecf1; --muted:#98a0aa; --line:#282e38;
+      --accent:#6cc6ff; --accent-soft:#163044; --warm:#ffab66; --cold:#8fc4ff;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1013; --panel:#171b21; --ink:#e9ecf1; --muted:#98a0aa; --line:#282e38;
+    --accent:#6cc6ff; --accent-soft:#163044; --warm:#ffab66; --cold:#8fc4ff;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    font-size:14px; line-height:1.55;
+    padding-left:max(16px, env(safe-area-inset-left, 0px));
+    padding-right:max(16px, env(safe-area-inset-right, 0px));
+  }
+  .app{max-width:1180px; margin:0 auto; padding:22px 0 30px;}
+  header h1{font-size:20px; margin:0 0 4px; letter-spacing:.5px;}
+  header p{margin:0 0 18px; color:var(--muted); font-size:13px;}
+  .layout{display:grid; grid-template-columns:minmax(0,1fr) 308px; gap:18px; align-items:start;}
+  @media (max-width:900px){ .layout{grid-template-columns:1fr;} }
+
+  /* 灯箱硬件框 */
+  .lightbox{
+    background:linear-gradient(160deg,#2a2e36,#17191e 60%,#23262d);
+    border:1px solid #000; border-radius:16px; padding:16px 16px 14px;
+    box-shadow:0 18px 44px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .canvas-wrap{
+    position:relative; width:100%; border-radius:8px; overflow:hidden;
+    background:#05070a; cursor:none; touch-action:none;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.07), inset 0 0 34px rgba(0,0,0,.65);
+  }
+  .canvas-wrap .canvas-container,
+  .canvas-wrap canvas{ width:100% !important; height:auto !important; display:block; }
+  .glass-sheen{
+    position:absolute; inset:0; pointer-events:none; border-radius:8px;
+    background:linear-gradient(125deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.025) 22%, rgba(255,255,255,0) 45%);
+    mix-blend-mode:screen;
+  }
+  .hint{color:#aeb6c2; font-size:12px; margin:10px 2px 0; display:flex; gap:14px; flex-wrap:wrap;}
+  .hint b{color:#dde4ee; font-weight:600;}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:14px;}
+  .group{border-bottom:1px solid var(--line); padding-bottom:14px;}
+  .group:last-child{border-bottom:none; padding-bottom:0;}
+  .group h2{font-size:12px; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); margin:0 0 10px;}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;}
+  .row label{font-size:13px;}
+  .val{font-variant-numeric:tabular-nums; color:var(--accent); font-size:12.5px; white-space:nowrap;}
+  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:4px; outline:none; margin:6px 0 2px;
+    background:linear-gradient(90deg,var(--warm),#cfd4db 50%,var(--cold)); }
+  input[type=range].plain{background:var(--line);}
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+    background:var(--panel); border:2px solid var(--accent); box-shadow:0 1px 4px rgba(0,0,0,.3); cursor:pointer;}
+  input[type=range]::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:var(--panel); border:2px solid var(--accent); cursor:pointer;}
+  .temp-labels{display:flex; justify-content:space-between; font-size:11px; color:var(--muted);}
+  .btn-row{display:flex; gap:8px; flex-wrap:wrap;}
+  button{
+    font:inherit; font-size:12.5px; padding:7px 12px; border-radius:9px; cursor:pointer;
+    border:1px solid var(--line); background:var(--bg); color:var(--ink); transition:.15s;
+  }
+  button:hover{border-color:var(--accent); color:var(--accent);}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;}
+  button.primary:hover{filter:brightness(1.08); color:#fff;}
+  button[aria-pressed="true"]{background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:600;}
+  .state-tag{font-size:11.5px; padding:2px 8px; border-radius:99px; background:var(--accent-soft); color:var(--accent); font-weight:600;}
+  .probe-card{border:1px solid var(--line); border-radius:11px; padding:10px 12px; margin-bottom:10px; background:var(--bg);}
+  .probe-card:last-child{margin-bottom:0;}
+  .probe-head{display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; margin-bottom:8px;}
+  .dot{width:10px; height:10px; border-radius:50%;}
+  .dot.a{background:var(--probe-a);} .dot.b{background:var(--probe-b);}
+  .reading{display:grid; grid-template-columns:auto 1fr auto; gap:4px 8px; align-items:center; font-size:12.5px;}
+  .reading .k{color:var(--muted);}
+  .reading .num{font-variant-numeric:tabular-nums; font-weight:600; text-align:right;}
+  .bar{height:5px; border-radius:4px; background:var(--line); overflow:hidden; min-width:60px;}
+  .bar i{display:block; height:100%; border-radius:4px; transition:width .12s linear;}
+  .bar.thick i{background:var(--probe-a);} .bar.bright i{background:var(--accent);}
+  .formula{font-size:11.5px; color:var(--muted); background:var(--bg); border:1px dashed var(--line); border-radius:9px; padding:8px 10px;}
+  .formula code{color:var(--ink);}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(108,198,255,.5);}100%{box-shadow:0 0 0 12px rgba(108,198,255,0);}}
+  .pulse{animation:pulse .7s ease-out;}
+</style>
+
+<div class="app">
+  <header>
+    <h1>沙画灯箱 · 沙台台面模拟</h1>
+    <p>按住台面拖动撒沙笔刷，沙层增厚处背光被吸收而变暗；Fabric.js 承载可拖动的沙层与两个对照测点。</p>
+  </header>
+
+  <div class="layout">
+    <section>
+      <div class="lightbox">
+        <div class="canvas-wrap" id="wrap">
+          <canvas id="fc" width="720" height="450"></canvas>
+          <div class="glass-sheen"></div>
+        </div>
+      </div>
+      <div class="hint">
+        <span><b>按住拖动</b>：撒沙（越拖越厚）</span>
+        <span><b>拖动 A / B 圆点</b>：移动对照测点</span>
+        <span><b>厚 → 暗，薄 → 亮</b>：实时耦合</span>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="group">
+        <h2>背光控制</h2>
+        <div class="row"><label for="uniform">灯箱透光均匀度</label><span class="state-tag" id="stateTag">斑驳</span></div>
+        <input type="range" id="uniform" class="plain" min="0" max="100" step="1" value="55">
+        <div class="row" style="margin-top:8px">
+          <span class="val" id="uniformVal">55%</span>
+          <button class="primary" id="btnCritical">临界均匀预设 · 亮环</button>
+        </div>
+        <div class="row" style="margin-top:10px"><label for="temp">背光色温</label></div>
+        <input type="range" id="temp" min="0" max="100" step="1" value="50">
+        <div class="temp-labels"><span style="color:var(--warm)">暖 2700K</span><span>中性</span><span style="color:var(--cold)">冷 8000K</span></div>
+      </div>
+
+      <div class="group">
+        <h2>撒沙笔刷</h2>
+        <div class="row"><label for="brushR">笔刷半径</label><span class="val" id="brushRVal">34 px</span></div>
+        <input type="range" id="brushR" class="plain" min="10" max="64" step="1" value="34">
+        <div class="row" style="margin-top:8px"><label for="flow">出沙量</label><span class="val" id="flowVal">55%</span></div>
+        <input type="range" id="flow" class="plain" min="10" max="100" step="1" value="55">
+        <div class="btn-row" style="margin-top:10px">
+          <button id="btnEraser" aria-pressed="false">橡皮擦</button>
+          <button id="btnReset">重置沙画</button>
+          <button id="btnClear">清空沙层</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>对照点读数（厚度 / 透光同时显示）</h2>
+        <div class="probe-card" id="cardA">
+          <div class="probe-head"><span class="dot a"></span>对照点 A · 厚沙区</div>
+          <div class="reading">
+            <span class="k">沙层厚度</span>
+            <span class="bar thick"><i id="barA_h" style="width:0%"></i></span>
+            <span class="num" id="A_h">– mm</span>
+            <span class="k">透光亮度</span>
+            <span class="bar bright"><i id="barA_b" style="width:0%"></i></span>
+            <span class="num" id="A_b">– %</span>
+            <span class="k">台面照度</span><span></span><span class="num" id="A_lux">– lx</span>
+          </div>
+        </div>
+        <div class="probe-card" id="cardB">
+          <div class="probe-head"><span class="dot b"></span>对照点 B · 薄沙区</div>
+          <div class="reading">
+            <span class="k">沙层厚度</span>
+            <span class="bar thick"><i id="barB_h" style="width:0%"></i></span>
+            <span class="num" id="B_h">– mm</span>
+            <span class="k">透光亮度</span>
+            <span class="bar bright"><i id="barB_b" style="width:0%"></i></span>
+            <span class="num" id="B_b">– %</span>
+            <span class="k">台面照度</span><span></span><span class="num" id="B_lux">– lx</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="formula">
+        耦合模型：透过率 <code>T = e<sup>−k·h</sup></code>，台面亮度 <code>B = L(均匀度,色温) · T</code>；
+        细颗粒噪声强度随沙厚 <code>h</code> 增大，无沙玻璃区保持光滑。
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  /* ---------- 分辨率与场 ---------- */
+  const W = 720, H = 450;
+  const N = W * H;
+  const hField = new Float32Array(N);                 // 沙层厚度场 0..1
+  const K = 2.8;                                      // 消光系数
+  const UC = 0.82;                                    // 临界均匀度（亮环预设）
+
+  /* ---------- 离屏渲染画布（沙层图像数据源） ---------- */
+  const sand = document.createElement('canvas');
+  sand.width = W; sand.height = H;
+  const sctx = sand.getContext('2d');
+  const frameImg = sctx.createImageData(W, H);
+  const px = frameImg.data;
+
+  /* ---------- 背光斑驳：低频 value noise 两个八度 ---------- */
+  function grid(w, h){ const a = new Float32Array(w*h); for(let i=0;i<a.length;i++) a[i]=Math.random()*2-1; return a; }
+  function bilerp(g, gw, gh, x, y){
+    const fx = Math.min(gw-1.0001, Math.max(0, x/(W-1)*(gw-1)));
+    const fy = Math.min(gh-1.0001, Math.max(0, y/(H-1)*(gh-1)));
+    const x0=fx|0, y0=fy|0, tx=fx-x0, ty=fy-y0;
+    const sx=tx*tx*(3-2*tx), sy=ty*ty*(3-2*ty);
+    const i00=y0*gw+x0, i10=i00+1, i01=i00+gw, i11=i01+1;
+    const a=g[i00]*(1-sx)+g[i10]*sx, b=g[i01]*(1-sx)+g[i11]*sx;
+    return a*(1-sy)+b*sy;
+  }
+  const g1 = grid(10,7), g2 = grid(28,18);
+  const mottle = new Float32Array(N);
+  let mx = 0;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    const v = 0.68*bilerp(g1,10,7,x,y) + 0.42*bilerp(g2,28,18,x,y);
+    const i=y*W+x; mottle[i]=v; const a=Math.abs(v); if(a>mx) mx=a;
+  }
+  for(let i=0;i<N;i++) mottle[i]/=mx;
+
+  /* ---------- 临界亮环场（径向环 + 角度，用于若隐若现的闪烁） ---------- */
+  const ringF = new Float32Array(N), ringA = new Float32Array(N);
+  const cx=W/2, cy=H/2, RR=Math.min(W,H)*0.40, rw=15;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    const i=y*W+x, dx=x-cx, dy=y-cy, r=Math.sqrt(dx*dx+dy*dy);
+    const d=r-RR;
+    ringF[i]=Math.exp(-(d*d)/(2*rw*rw));
+    ringA[i]=Math.atan2(dy,dx);
+  }
+
+  /* ---------- 细沙颗粒纹理（128 平铺噪声 + 稀疏亮点） ---------- */
+  const TS=128;
+  const grain=new Float32Array(TS*TS), speck=new Float32Array(TS*TS);
+  for(let i=0;i<grain.length;i++) grain[i]=(Math.random()+Math.random()+Math.random()-1.5)/1.4;
+  for(let i=0;i<speck.length;i++){ const r=Math.random(); speck[i]=r>0.975?1:r<0.025?-0.8:0; }
+
+  /* ---------- 玻璃高光（无沙区可见）与查表 ---------- */
+  const sheen=new Float32Array(N);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    const diag=Math.max(0, 1-Math.abs((x*0.9+y*0.45)-260)/320);
+    const rad=Math.exp(-(((x-150)**2)/(2*260*260)+((y-90)**2)/(2*180*180)));
+    sheen[y*W+x]=0.05*diag+0.045*rad;
+  }
+  const expT=new Float32Array(256), tintT=new Float32Array(256);
+  for(let i=0;i<256;i++){ const v=i/255; expT[i]=Math.exp(-K*v); tintT[i]=1-Math.exp(-2.2*v); }
+
+  /* ---------- Fabric.js 交互层 ---------- */
+  const fCanvas = new fabric.Canvas('fc', {selection:false, enableRetinaScaling:false});
+  const sandImg = new fabric.Image(sand, {left:0, top:0, selectable:false, evented:false});
+  fCanvas.add(sandImg);
+
+  function makeProbe(label, color, x, y, tag){
+    const c = new fabric.Circle({radius:10, left:0, top:0, originX:'center', originY:'center',
+      fill:color+'2e', stroke:color, strokeWidth:2.5});
+    const t = new fabric.Text(label, {left:0, top:1, originX:'center', originY:'center',
+      fontSize:11, fontWeight:'bold', fill:'#ffffff', pointerEvents:false});
+    const g = new fabric.Group([c,t], {left:x, top:y, originX:'center', originY:'center',
+      hasControls:false, hasBorders:false, lockScalingX:true, lockScalingY:true,
+      lockRotation:true, transparentCorners:true, padding:6, hoverCursor:'move'});
+    g.isProbe = tag; g.probeColor = color;
+    fCanvas.add(g);
+    return g;
+  }
+  const probeA = makeProbe('A', '#ff6b4a', 205, 272, 'A');
+  const probeB = makeProbe('B', '#34c98b', 560, 158, 'B');
+  fCanvas.on('object:moving', e=>{
+    const o=e.target;
+    o.left=Math.max(12, Math.min(W-12, o.left));
+    o.top =Math.max(12, Math.min(H-12, o.top));
+  });
+
+  const brushCursor = new fabric.Circle({radius:34, left:-999, top:-999, originX:'center', originY:'center',
+    fill:'rgba(108,198,255,0.10)', stroke:'#6cc6ff', strokeWidth:1.6, strokeDashArray:[5,4],
+    selectable:false, evented:false});
+  fCanvas.add(brushCursor);
+
+  /* ---------- 控件状态 ---------- */
+  const $=id=>document.getElementById(id);
+  let U=0.55, temp=0.5, brushR=34, flow=0.55, erasing=false, painting=false;
+  let lastPt=null;
+
+  $('uniform').addEventListener('input', e=>{ U=e.target.value/100; $('uniformVal').textContent=e.target.value+'%'; updateTag(); });
+  $('temp').addEventListener('input', e=>{ temp=e.target.value/100; });
+  $('brushR').addEventListener('input', e=>{ brushR=+e.target.value; $('brushRVal').textContent=brushR+' px'; brushCursor.set('radius',brushR); });
+  $('flow').addEventListener('input', e=>{ flow=e.target.value/100; $('flowVal').textContent=e.target.value+'%'; });
+  $('btnEraser').addEventListener('click', e=>{ erasing=!erasing; e.target.setAttribute('aria-pressed', erasing);
+    brushCursor.set('stroke', erasing?'#ff9d6c':'#6cc6ff'); });
+  $('btnClear').addEventListener('click', ()=>{ hField.fill(0); });
+  $('btnReset').addEventListener('click', ()=>{ seedSand(); });
+  $('btnCritical').addEventListener('click', ()=>{
+    $('uniform').value=82; U=UC; $('uniformVal').textContent='82%'; updateTag();
+    const b=$('btnCritical'); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
+  });
+  function updateTag(){
+    const t=$('stateTag');
+    if(Math.abs(U-UC)<=0.03){ t.textContent='临界 · 亮环'; t.style.background='var(--accent-soft)'; t.style.color='var(--accent)'; }
+    else if(U<UC){ t.textContent='明暗斑驳'; t.style.background='rgba(232,134,46,.16)'; t.style.color='var(--warm)'; }
+    else { t.textContent='均匀透光'; t.style.background='rgba(52,201,139,.16)'; t.style.color='var(--probe-b)'; }
+  }
+  updateTag();
+
+  /* ---------- 撒沙：高斯笔刷沿路径撒点 ---------- */
+  function splat(px0, py0, sign){
+    const sigma=brushR*0.5, r2=brushR*brushR;
+    const x0=Math.max(0, Math.floor(px0-brushR)), x1=Math.min(W-1, Math.ceil(px0+brushR));
+    const y0=Math.max(0, Math.floor(py0-brushR)), y1=Math.min(H-1, Math.ceil(py0+brushR));
+    const twoS2=2*sigma*sigma;
+    for(let y=y0;y<=y1;y++){
+      const dy=y-py0;
+      for(let x=x0;x<=x1;x++){
+        const dx=x-px0, d2=dx*dx+dy*dy;
+        if(d2>r2) continue;
+        const i=y*W+x, add=sign*flow*Math.exp(-d2/twoS2);
+        let v=hField[i]+add;
+        hField[i]=v<0?0:v>1?1:v;
+      }
+    }
+  }
+  function splatLine(a, b, sign){
+    const dx=b.x-a.x, dy=b.y-a.y, dist=Math.hypot(dx,dy), step=Math.max(2, brushR*0.32);
+    const n=Math.max(1, Math.ceil(dist/step));
+    for(let k=0;k<=n;k++) splat(a.x+dx*k/n, a.y+dy*k/n, sign);
+  }
+
+  fCanvas.on('mouse:down', e=>{
+    if(e.target && e.target.isProbe) return;           // 让 Fabric 处理对照点拖动
+    painting=true;
+    fCanvas.discardActiveObject();
+    const p=fCanvas.getPointer(e.e);
+    lastPt={x:p.x, y:p.y};
+    splat(p.x, p.y, erasing?-1:1);
+  });
+  fCanvas.on('mouse:move', e=>{
+    const p=fCanvas.getPointer(e.e);
+    if(!fCanvas.getActiveObject()){
+      brushCursor.set({left:p.x, top:p.y, visible:true});
+      fCanvas.requestRenderAll();
+    } else brushCursor.set('visible', false);
+    if(painting && !fCanvas.getActiveObject() && lastPt){
+      splatLine(lastPt, p, erasing?-1:1);
+      lastPt={x:p.x, y:p.y};
+    }
+  });
+  fCanvas.on('mouse:up', ()=>{ painting=false; lastPt=null; });
+  fCanvas.on('mouse:out', ()=>{ painting=false; lastPt=null; brushCursor.set('visible',false); });
+
+  /* ---------- 初始沙画：厚沙区（A 点）+ 若干沙堆，B 点留作薄沙 ---------- */
+  function blob(cx0, cy0, r, passes){
+    for(let k=0;k<passes;k++){
+      const old=brushR; brushR=r;
+      splat(cx0+(Math.random()-0.5)*r*0.9, cy0+(Math.random()-0.5)*r*0.9, 1);
+      brushR=old;
+    }
+  }
+  function seedSand(){
+    hField.fill(0);
+    blob(205, 272, 96, 7);    // A 点所在厚沙区
+    blob(430, 335, 70, 4);
+    blob(560, 305, 46, 3);
+    blob(118, 118, 52, 3);
+    blob(360, 130, 38, 2);
+  }
+  seedSand();
+
+  /* ---------- 色温 RGB 增益：暖 → 中性 → 冷 ---------- */
+  function tempGains(k){
+    let r,g,b;
+    if(k<0.5){ const t=k*2; r=1.06+ (1.0-1.06)*t; g=0.74+(1.0-0.74)*t; b=0.45+(1.0-0.45)*t; }
+    else { const t=(k-0.5)*2; r=1.0+(0.72-1.0)*t; g=1.0+(0.86-1.0)*t; b=1.0+(1.18-1.0)*t; }
+    return [r,g,b];
+  }
+
+  /* ---------- 对照点读数 ---------- */
+  function sampleH(x, y){
+    x=Math.max(0, Math.min(W-1.001, x)); y=Math.max(0, Math.min(H-1.001, y));
+    const x0=x|0, y0=y|0, fx=x-x0, fy=y-y0;
+    const i00=y0*W+x0;
+    const a=hField[i00]*(1-fx)+hField[i00+1]*fx;
+    const c=hField[i00+W]*(1-fx)+hField[i00+W+1]*fx;
+    return a*(1-fy)+c*fy;
+  }
+  function reading(o, t){
+    const x=Math.max(0,Math.min(W-1,o.left|0)), y=Math.max(0,Math.min(H-1,o.top|0));
+    const i=y*W+x, h=sampleH(o.left,o.top);
+    let L=1+(1-U)*1.15*mottle[i];
+    const rv=Math.exp(-((U-UC)*(U-UC))/(2*0.09*0.09));
+    L += ringF[i]*rv*(0.16+0.10*Math.sin(t*0.0021+ringA[i]*4));
+    L=Math.max(0.04, Math.min(1.25, L));
+    return {h, B:L*Math.exp(-K*h)};
+  }
+  const cache={};
+  function setText(id, s){ if(cache[id]!==s){ cache[id]=s; $(id).textContent=s; } }
+  function updateReadouts(t){
+    const ra=reading(probeA,t), rb=reading(probeB,t);
+    setText('A_h', (ra.h*4).toFixed(2)+' mm');
+    setText('B_h', (rb.h*4).toFixed(2)+' mm');
+    setText('A_b', Math.round(ra.B*100)+' %');
+    setText('B_b', Math.round(rb.B*100)+' %');
+    setText('A_lux', Math.round(ra.B*1200)+' lx');
+    setText('B_lux', Math.round(rb.B*1200)+' lx');
+    $('barA_h').style.width=(ra.h*100).toFixed(1)+'%';
+    $('barB_h').style.width=(rb.h*100).toFixed(1)+'%';
+    $('barA_b').style.width=Math.min(100,ra.B*100).toFixed(1)+'%';
+    $('barB_b').style.width=Math.min(100,rb.B*100).toFixed(1)+'%';
+  }
+
+  /* ---------- 主渲染循环：厚度场 → 透光图像 ---------- */
+  function frame(t){
+    const ma=(1-U)*1.15;
+    const rv=Math.exp(-((U-UC)*(U-UC))/(2*0.09*0.09));
+    const sh=t*0.0021;
+    const go=(t*0.012)|0;
+    const [rGain,gGain,bGain]=tempGains(temp);
+
+    for(let y=0;y<H;y++){
+      for(let x=0;x<W;x++){
+        const i=y*W+x, p=i*4;
+        const h=hField[i];
+
+        // 背光：均匀度越低，斑驳场权重越大；临界处叠加闪烁亮环
+        let L=1+ma*mottle[i];
+        if(rv>0.01){
+          const rf=ringF[i];
+          if(rf>0.001) L += rf*rv*(0.16+0.10*Math.sin(sh+ringA[i]*4));
+        }
+        if(L<0.04) L=0.04; else if(L>1.25) L=1.25;
+
+        // 厚度吸收（Beer–Lambert）
+        const B0=L*expT[Math.min(255,(h*255)|0)];
+        let B=B0 + sheen[i]*(1-h);
+
+        // 细颗粒纹理仅出现在有沙处，玻璃区保持光滑
+        if(h>0.01){
+          const gx=(x+go)&127, gy=(y+((go*5)&127))&127, gi=gy*128+gx;
+          const sx2=(x+((go*3)&127))&127, si=((y+go)&127)*128+sx2;
+          B *= 1 + (0.09*grain[gi] + 0.10*speck[si])*h;
+        }
+
+        // 沙层暖色偏染
+        const tt=tintT[Math.min(255,(h*255)|0)];
+        let r=B*rGain*(1+0.05*tt);
+        let g=B*gGain*(1-0.07*tt);
+        let b=B*bGain*(1-0.22*tt);
+
+        px[p]   = r>255?255:r<0?0:r;
+        px[p+1] = g>255?255:g<0?0:g;
+        px[p+2] = b>255?255:b<0?0:b;
+        px[p+3] = 255;
+      }
+    }
+    sctx.putImageData(frameImg, 0, 0);
+    sandImg.dirty = true;
+    fCanvas.renderAll();
+    updateReadouts(t);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
