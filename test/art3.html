@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;background:#6d6047;color:#ddd;font:12px system-ui;display:flex;flex-wrap:wrap}
+canvas{display:block;background:#6d6047}
+</style></head><body>
+<script type="module">
+import { buildAnimalAtlas } from '../src/art.js';
+const a = buildAnimalAtlas(1.6);
+// draw individual cells, scaled 2x, poses down the rows, frames across
+const cw=a.cellW, ch=a.cellH, dpr=1.6, out=1.35;
+const out2=document.createElement('canvas');
+out2.width = cw*3.2; out2.height = ch*5*1.0;
+const g=out2.getContext('2d'); g.fillStyle='#6d6047'; g.fillRect(0,0,out2.width,out2.height);
+g.imageSmoothingEnabled = true;
+for(let p=0;p<5;p++){
+  const col = p; // pose p, frame 0, tint 0 → index p*24
+  const idx = p*6*4;
+  const sx=(idx%10)*cw*dpr, sy=Math.floor(idx/10)*ch*dpr;
+  g.drawImage(a.canvas, sx, sy, cw*dpr, ch*dpr, 0, p*ch*1.0, cw, ch);
+  // also 2 more frames at different sizes
+  for (let f=0; f<2; f++){
+    const i2 = p*6*4 + f*4;
+    const sx2=(i2%10)*cw*dpr, sy2=Math.floor(i2/10)*ch*dpr;
+    const scale = 1.8;
+    g.drawImage(a.canvas, sx2, sy2, cw*dpr, ch*dpr, cw*0.5 + f*cw*1.4, p*ch*1.0 - ch*0.4, cw*scale, ch*scale);
+  }
+}
+document.body.appendChild(out2);
+console.log('cells', cw, ch, 'atlas', a.canvas.width, a.canvas.height);
+</script></body></html>

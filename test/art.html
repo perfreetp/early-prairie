@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><title>art</title>
+<style>body{margin:0;background:#2a2117;color:#eee;font:13px sans-serif}canvas{display:block}</style>
+</head><body>
+<script type="module">
+try {
+import('../src/art.js').then(async (A) => {
+  const { World } = await import('../src/world.js');
+  const a = A.buildAnimalAtlas(2);
+  document.body.appendChild(a.canvas);
+  a.canvas.style.width = (a.canvas.width/2)+'px';
+  const w = new World(); w.build(0.35);
+  const t = A.buildTerrainCanvas(w, {wet: 0.35});
+  t.style.width = '640px';
+  document.body.appendChild(t);
+  window.__ok = a.frames.length;
+  console.log('atlas frames', a.frames.length, a.canvas.width, a.canvas.height);
+}).catch(e => console.log('ERR ' + e.stack));
+} catch(e) { console.log('SYNC ERR ' + e.stack); }
+</script></body></html>

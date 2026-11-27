@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;background:#2a2117;color:#ddd;font:12px system-ui}
+canvas{display:block;image-rendering:auto}
+</style></head><body><div id=log></div>
+<script type="module">
+import { buildAnimalAtlas } from '../src/art.js';
+const a = buildAnimalAtlas(3);
+const cw=a.cellW, ch=a.cellH;
+// big zoomed sheet: pose rows x 3 frames, tint 0
+const src=a.canvas;
+const out=document.createElement('canvas');
+out.width = cw*3*3; out.height = ch*5*3;
+const g=out.getContext('2d'); g.imageSmoothingEnabled=true; g.fillStyle='#3a2e1e'; g.fillRect(0,0,out.width,out.height);
+for(let p=0;p<5;p++){
+  for(let f=0;f<3;f++){
+    const idx = p*6*4 + f*4 + 0;
+    const sx=(idx%a.ATLAS_COLS)*cw, sy=Math.floor(idx/a.ATLAS_COLS)*ch;
+    const dpr=3;
+    g.drawImage(src, sx*dpr, sy*dpr, cw*dpr, ch*dpr, f*cw*3, p*ch*3, cw*3, ch*3);
+  }
+}
+document.body.appendChild(out);
+console.log('ok');
+</script></body></html>

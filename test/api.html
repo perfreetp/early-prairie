@@ -1,0 +1,62 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#222}</style>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.js"></script></head>
+<body><script>
+const log=(...a)=>console.log(a.join(' '));
+(async()=>{
+ try{
+  log('exports sample:', ['Mesh','MeshSimple','MeshGeometry','ParticleContainer','Particle','Texture','Rectangle','Graphics','TilingSprite','Container','Shader'].map(k=>k+':'+(typeof PIXI[k])).join(' '));
+  const app=new PIXI.Application(); await app.init({background:'#222',width:900,height:600,preference:'webgl'});
+  document.body.appendChild(app.canvas);
+  // canvas atlas
+  const c=document.createElement('canvas'); c.width=128; c.height=64; const g=c.getContext('2d');
+  g.fillStyle='#e6c'; g.fillRect(0,0,64,64); g.fillStyle='#6ce'; g.fillRect(64,0,64,64);
+  const tex=PIXI.Texture.from(c); tex.source.scaleMode='nearest';
+  const Q=200;
+  // try MeshSimple
+  const pos=new Float32Array(Q*4*2), uvs=new Float32Array(Q*4*2), idx=new Uint32Array(Q*6);
+  for(let q=0;q<Q;q++){
+    const x=(q%20)*40+40, y=Math.floor(q/20)*40+40, s=16;
+    pos.set([x-s,y-s, x+s,y-s, x+s,y+s, x-s,y+s], q*8);
+    // atlas cell 0: 0..0.5 u
+    uvs.set([0,0, 0.5,0, 0.5,1, 0,1], q*8);
+    idx.set([q*4,q*4+1,q*4+2, q*4,q*4+2,q*4+3], q*6);
+  }
+  let mesh=null, kind='';
+  try{
+    mesh=new PIXI.MeshSimple({texture:tex, vertices:pos, uvs, indices:idx});
+    kind='MeshSimple';
+  }catch(e){ log('MeshSimple FAIL', e.message); }
+  log('kind', kind, 'mesh?', !!mesh);
+  if(mesh){
+    app.stage.addChild(mesh);
+    log('mesh keys:', Object.keys(mesh).slice(0,30).join(','));
+    log('geometry?', !!mesh.geometry, mesh.geometry && Object.keys(mesh.geometry).slice(0,20).join(','));
+    log('uvBuf', !!(mesh.geometry && mesh.geometry.getBuffer && mesh.geometry.getBuffer('aUV')));
+    log('posBuf', !!(mesh.geometry && mesh.geometry.getBuffer && mesh.geometry.getBuffer('aPosition')));
+    log('mesh.texture', mesh.texture && mesh.texture.source && mesh.texture.source.label);
+  }
+  // ParticleContainer test
+  let pc=null;
+  try{
+    pc=new PIXI.ParticleContainer({dynamicProperties:{position:true, rotation:true, uvs:true, tint:true, vertex:true}});
+    const sub=new PIXI.Texture({source:tex.source, frame:new PIXI.Rectangle(64,0,64,64)});
+    for(let i=0;i<50;i++){ const p=new PIXI.Particle({texture:sub}); p.x=600+ (i%10)*20; p.y=100+Math.floor(i/10)*20; p.rotation=0.3; p.scaleX=0.5; p.scaleY=0.5; pc.addParticle(p); }
+    app.stage.addChild(pc);
+    const first=pc.particleChildren[0];
+    log('particle props', 'x' in first, 'texture' in first, Object.keys(first).slice(0,12).join(','));
+    first.x=700; first.rotation=1.2;
+  }catch(e){ log('ParticleContainer FAIL', e.message); }
+  let f=0,t0=performance.now();
+  app.ticker.add(()=>{
+    f++;
+    if(mesh && mesh.geometry){
+      const pb=mesh.geometry.getBuffer('aPosition');
+      // animate: shift uvs between the two atlas cells for a chunk of quads
+      const ub=mesh.geometry.getBuffer('aUV');
+      if(ub){ for(let q=0;q<20;q++){ const o=q*8; ub.data[o]=0.5; ub.data[o+2]=1; ub.data[o+4]=1; ub.data[o+6]=0.5; } ub.update(); }
+    }
+  });
+  setTimeout(()=>{ log('FPS', (f/((performance.now()-t0)/1000)).toFixed(1)); log('DONE'); }, 2000);
+ }catch(e){ log('FAIL '+e.stack); }
+})();
+</script></body></html>

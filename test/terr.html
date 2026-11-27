@@ -1,0 +1,9 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#111}canvas{display:block}</style></head><body>
+<script type="module">
+import { buildTerrainCanvas } from '../src/art.js';
+import { World } from '../src/world.js';
+const w = new World(); w.build(0.15);
+const c = buildTerrainCanvas(w, {wet:0.15});
+document.body.appendChild(c);
+console.log('terrain', c.width, c.height);
+</script></body></html>

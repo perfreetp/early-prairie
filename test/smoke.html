@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#111}canvas{display:block}</style>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.js"></script></head>
+<body><script>
+(async () => {
+  const log = (m) => { console.log(m); };
+  try {
+    log('pixi ' + PIXI.VERSION);
+    const app = new PIXI.Application();
+    await app.init({ background: '#2b2018', antialias: true, resizeTo: window, resolution: 1 });
+    document.body.appendChild(app.canvas);
+    const g = new PIXI.Graphics();
+    g.rect(20,20,100,60).fill({color:0xd9a441});
+    app.stage.addChild(g);
+    // canvas texture + subframe
+    const c = document.createElement('canvas'); c.width=128; c.height=64;
+    const ctx = c.getContext('2d'); ctx.fillStyle='#8fd'; ctx.fillRect(0,0,64,64); ctx.fillStyle='#f84'; ctx.fillRect(64,0,64,64);
+    const base = PIXI.Texture.from(c);
+    log('source ok ' + !!base.source);
+    const sub = new PIXI.Texture({ source: base.source, frame: new PIXI.Rectangle(64,0,64,64) });
+    const sp = new PIXI.Sprite(sub); sp.anchor.set(0.5); sp.position.set(300,200); sp.rotation = 0.4; sp.width=100; sp.height=100;
+    app.stage.addChild(sp);
+    const t = new PIXI.TilingSprite({ texture: sub, width: 400, height: 200 });
+    t.position.set(350, 300); t.alpha = 0.4; t.tileScale.set(2); t.tilePosition.set(10,20);
+    app.stage.addChild(t);
+    const txt = new PIXI.Text({ text: '测试 Text', style: { fill: 0xffffff, fontSize: 24 } });
+    txt.position.set(20, 400); app.stage.addChild(txt);
+    // measure
+    let frames = 0; const t0 = performance.now();
+    app.ticker.add(() => { frames++; });
+    setTimeout(() => {
+      log('FPS ' + (frames / ((performance.now()-t0)/1000)).toFixed(1));
+      log('renderer ' + (app.renderer.name || app.renderer.type));
+      log('OK');
+    }, 1200);
+    window.__app = app;
+  } catch (e) { console.log('FAIL ' + e.stack); }
+})();
+</script></body></html>

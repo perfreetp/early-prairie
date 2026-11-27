@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#222}canvas{display:block}</style>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.js"></script></head>
+<body><script>
+(async()=>{
+ const P=PIXI; const app=new P.Application(); await app.init({width:1000,height:600,background:'#222'}); document.body.appendChild(app.canvas);
+ const c=document.createElement('canvas'); c.width=128; c.height=64; const g=c.getContext('2d');
+ g.fillStyle='#c8b18d'; g.fillRect(0,0,128,64);
+ g.fillStyle='#ff0000'; g.fillRect(0,0,64,16);   // top strip = texture v=0
+ g.fillStyle='#00ff00'; g.fillRect(0,48,64,16);  // bottom strip = v large
+ g.fillStyle='#0000ff'; g.fillRect(56,20,8,24);  // "head" at u large
+ g.fillStyle='#ffff00'; g.fillRect(4,20,8,24);   // "tail" at u small
+ const tex=P.Texture.from(c); tex.source.scaleMode='nearest';
+ const n=6;
+ const pos=new Float32Array(n*8), uv=new Float32Array(n*8); const idx=new Uint32Array(n*6);
+ for(let q=0;q<n;q++){
+  const cx=140+q*150, cy=200, hx=60, hy=40;
+  // rotation: quarter turn per quad
+  const a=q*Math.PI/3, cr=Math.cos(a), sr=Math.sin(a);
+  const set=(k,mx,my)=>{ pos[q*8+k*2]=cx+mx*cr-my*sr; pos[q*8+k*2+1]=cy+mx*sr+my*cr; };
+  set(0,-hx,-hy); set(1,hx,-hy); set(2,hx,hy); set(3,-hx,hy);
+  uv.set([0,0, 1,0, 1,1, 0,1], q*8);
+  idx.set([q*4,q*4+1,q*4+2, q*4,q*4+2,q*4+3], q*6);
+ }
+ const m=new P.MeshSimple({texture:tex, vertices:pos, uvs:uv, indices:idx});
+ app.stage.addChild(m);
+ const txt=new P.Text({text:'quad0 up, quad1 60deg ...',style:{fill:0xffffff,fontSize:14}}); txt.position.set(20,40); app.stage.addChild(txt);
+ console.log('ok');
+})();
+</script></body></html>

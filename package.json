@@ -1,0 +1,24 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/perfreetp/early-prairie.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/perfreetp/early-prairie/issues"
+  },
+  "homepage": "https://github.com/perfreetp/early-prairie#readme",
+  "dependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}
