@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>童谣草地 · 生态条件模拟</title>
+<style>
+  :root {
+    --bg: #f4f1e8;
+    --panel: #fffdf6;
+    --fg: #2c3a2e;
+    --muted: #6b7a6d;
+    --accent: #4e8d3a;
+    --accent-2: #3f7fbf;
+    --warn: #c47a2c;
+    --line: #d8d2c2;
+    --chip: #ece7d8;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17201a;
+      --panel: #1f2b23;
+      --fg: #e6ede4;
+      --muted: #9db0a0;
+      --accent: #7fc46a;
+      --accent-2: #7ab2e6;
+      --warn: #e0a45d;
+      --line: #35453a;
+      --chip: #2a3a2f;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17201a; --panel: #1f2b23; --fg: #e6ede4; --muted: #9db0a0;
+    --accent: #7fc46a; --accent-2: #7ab2e6; --warn: #e0a45d;
+    --line: #35453a; --chip: #2a3a2f; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.55 "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: max(18px, env(safe-area-inset-top, 0px)) 24px;
+    min-height: 100vh;
+  }
+  .shell { max-width: 1200px; margin: 0 auto; }
+  header h1 { font-size: 20px; margin: 0 0 2px; letter-spacing: .5px; }
+  header p { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+  main { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .stage-wrap {
+    position: relative; flex: 1 1 620px; min-width: 0;
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    background: #bfe3ff; box-shadow: 0 6px 22px rgba(0,0,0,.10);
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; }
+  .banner {
+    position: absolute; top: 12px; left: 12px; right: 12px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    background: rgba(20,30,24,.82); color: #eef5ec;
+    padding: 8px 12px; border-radius: 10px; font-size: 13px;
+    opacity: 0; transform: translateY(-6px); transition: opacity .25s, transform .25s;
+    pointer-events: none;
+  }
+  .banner.show { opacity: 1; transform: translateY(0); }
+  .banner .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); flex: none; }
+  .banner b { color: #ffd9a0; }
+  .panel {
+    flex: 0 0 272px; width: 272px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  @media (max-width: 920px) { .panel { flex: 1 1 100%; width: 100%; } }
+  .block h2 {
+    font-size: 12px; text-transform: none; color: var(--muted);
+    margin: 0 0 8px; letter-spacing: 1px; font-weight: 700;
+  }
+  .presets { display: flex; gap: 8px; }
+  button.preset {
+    flex: 1; padding: 9px 4px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--chip); color: var(--fg); cursor: pointer; font-size: 13px;
+    transition: border-color .15s, background .15s, transform .1s;
+  }
+  button.preset:hover { border-color: var(--accent); }
+  button.preset:active { transform: scale(.97); }
+  button.preset.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--panel)); color: var(--accent); font-weight: 700; }
+  .slider-row { margin-bottom: 12px; }
+  .slider-row:last-child { margin-bottom: 0; }
+  .slider-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .slider-label output { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 700; }
+  .track-wrap { position: relative; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  input[type=range]:disabled { opacity: .45; pointer-events: none; }
+  .crit-mark {
+    position: absolute; left: 50%; top: 0; bottom: -2px; width: 2px;
+    background: var(--warn); opacity: .8; pointer-events: none; border-radius: 1px;
+  }
+  .crit-mark span {
+    position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; color: var(--warn); white-space: nowrap;
+  }
+  button.hold {
+    width: 100%; padding: 10px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--warn); background: transparent; color: var(--warn);
+    font-size: 13px; font-weight: 700; transition: background .15s, color .15s;
+  }
+  button.hold.on { background: var(--warn); color: #fff; }
+  .readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat {
+    background: var(--chip); border-radius: 10px; padding: 8px 10px;
+    min-width: 0;
+  }
+  .stat .k { font-size: 11px; color: var(--muted); }
+  .stat .v { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat.full { grid-column: 1 / -1; }
+  .mode-line { font-size: 12px; color: var(--muted); min-height: 18px; }
+  .mode-line b { color: var(--warn); font-weight: 700; }
+  .legend { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+  .legend .li { display: flex; gap: 8px; align-items: center; margin-bottom: 5px; }
+  .sw { width: 14px; height: 14px; border-radius: 4px; flex: none; border: 1.5px solid rgba(0,0,0,.35); }
+  .legend p { margin: 8px 0 0; }
+  .toast {
+    position: absolute; bottom: 12px; left: 50%; transform: translate(-50%, 8px);
+    background: rgba(20,30,24,.85); color: #ffd2d2; padding: 7px 14px; border-radius: 9px;
+    font-size: 12.5px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <h1>童谣草地 · 生态条件模拟</h1>
+    <p>拖动湿度 / 光照滑块,或选择三个对照点,观察资产密度、小溪宽度与树丛朝向的联动。</p>
+  </header>
+  <main>
+    <div class="stage-wrap" id="stageWrap">
+      <canvas id="stage"></canvas>
+      <div class="banner" id="banner">
+        <span class="dot"></span>
+        <span id="bannerText"></span>
+      </div>
+      <div class="toast" id="toast"></div>
+    </div>
+
+    <aside class="panel">
+      <div class="block">
+        <h2>对照点(全部滑块与资产同步过渡)</h2>
+        <div class="presets">
+          <button class="preset" data-preset="sunny">晴天</button>
+          <button class="preset" data-preset="rainy">雨后</button>
+          <button class="preset" data-preset="dusk">黄昏</button>
+        </div>
+      </div>
+
+      <div class="block">
+        <h2>环境滑块</h2>
+        <div class="slider-row">
+          <div class="slider-label"><label for="humidity">湿度</label><output id="humVal">25%</output></div>
+          <div class="track-wrap">
+            <input id="humidity" type="range" min="0" max="100" value="25">
+            <div class="crit-mark"><span>临界 50%</span></div>
+          </div>
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><label for="light">光照</label><output id="lightVal">75%</output></div>
+          <input id="light" type="range" min="0" max="100" value="75">
+        </div>
+      </div>
+
+      <div class="block">
+        <button class="hold" id="holdBtn">停在临界点(W = G)</button>
+      </div>
+
+      <div class="block">
+        <h2>实时读数</h2>
+        <div class="readouts">
+          <div class="stat"><div class="k">小溪宽度 W</div><div class="v" id="wVal">–</div></div>
+          <div class="stat"><div class="k">单侧草地 G</div><div class="v" id="gVal">–</div></div>
+          <div class="stat"><div class="k">树丛 / 上限 14</div><div class="v" id="treeVal">–</div></div>
+          <div class="stat"><div class="k">蘑菇 / 上限 26</div><div class="v" id="mushVal">–</div></div>
+          <div class="stat full"><div class="k">草丛 / 上限 34</div><div class="v" id="grassVal">–</div></div>
+        </div>
+        <div class="mode-line" id="modeLine"></div>
+      </div>
+
+      <div class="legend">
+        <div class="li"><span class="sw" style="background:#7bbf52"></span>草地(随光照加深 / 黄昏转暖)</div>
+        <div class="li"><span class="sw" style="background:#6db7e8"></span>小溪(湿度扩张,临界后外挤草地)</div>
+        <div class="li"><span class="sw" style="background:#3f7d38"></span>树丛(强光下向阴面左侧偏移)</div>
+        <div class="li"><span class="sw" style="background:#d2573f"></span>蘑菇(密度随湿度升高,避让小溪与树根)</div>
+        <p>操作:直接拖动任意资产重新布置;落点违规会弹回并提示;双击资产让它回到生态位。</p>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.23.0/pixi.min.js"></script>
+<script>
+/* ============================================================
+ * 童谣草地生态模拟
+ * 几何约定:舞台 960×600,小溪水平居中。
+ * 湿度 h=0.5 为临界点:溪宽 W = 单侧草地宽 G = 200px。
+ *   h<0.5:小溪扩张挤占草地(G 由 274 缩到 200)
+ *   h=0.5:W = G = 200,可锁定观察
+ *   h>0.5:G 锁定 200,草地整体向外平移,小溪继续扩张
+ * ============================================================ */
+const STAGE_W = 960, STAGE_H = 600;
+const H_CRIT = 0.5;
+const HW_MIN = 26, HW_CRIT = STAGE_H / 6, HW_MAX = 182; // 小溪半宽:26 → 100 → 182
+const BAND_CRIT = STAGE_H / 3;                          // 临界单侧草地 = 200
+
+const LIMITS = { tree: 14, mushroom: 26, grass: 34 };
+
+/* 稳定的种子随机,保证每次打开布局一致 */
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(20261128);
+
+/* ---------- 颜色工具 ---------- */
+function hslToRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360 / 360;
+  const q = l < .5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const f = t => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [f(h + 1 / 3), f(h), f(h - 1 / 3)];
+}
+const mix = (a, b, t) => a + (b - a) * t;
+function mixRgb(c1, c2, t) { return [mix(c1[0], c2[0], t), mix(c1[1], c2[1], t), mix(c1[2], c2[2], t)]; }
+function rgbNum(rgb, mul = 1) {
+  const c = v => Math.max(0, Math.min(255, Math.round(v * 255 * mul)));
+  return (c(rgb[0]) << 16) | (c(rgb[1]) << 8) | c(rgb[2]);
+}
+function mixColor(c1, c2, t, mul) { return rgbNum(mixRgb(c1, c2, t), mul); }
+
+/* ---------- 生态状态 ---------- */
+const state = {
+  h: 0.25, light: 0.75, warmth: 0,           // 当前值(被 tween)
+  goalH: 0.25, goalLight: 0.75, goalWarmth: 0, // 目标值
+  hold: false,
+  dragging: null,
+  time: 0,
+};
+
+const PRESETS = {
+  sunny: { h: 0.20, light: 0.90, warmth: 0 },
+  rainy: { h: 0.72, light: 0.55, warmth: 0 },
+  dusk:  { h: 0.35, light: 0.35, warmth: 1 },
+};
+
+/* ---------- 几何推导 ---------- */
+function streamHalfWidth(h) {
+  if (h <= H_CRIT) return HW_MIN + (HW_CRIT - HW_MIN) * (h / H_CRIT);
+  return HW_CRIT + (HW_MAX - HW_CRIT) * ((h - H_CRIT) / (1 - H_CRIT));
+}
+// 返回上下两条草地带 [y0, y1];临界后带宽锁定 BAND_CRIT,整体外移
+function grassBands(hw) {
+  const innerTop = STAGE_H / 2 - hw;
+  const innerBot = STAGE_H / 2 + hw;
+  const bandW = Math.max(innerTop, BAND_CRIT); // 临界前 = innerTop(被挤窄),临界后锁定 200
+  return {
+    bandW,
+    top: [innerTop - bandW, innerTop],
+    bottom: [innerBot, innerBot + bandW],
+  };
+}
+
+/* ---------- 密度 → 数量(关系可读:单调、取整、带上下限) ---------- */
+function targetCounts(h) {
+  return {
+    mushroom: Math.round(6 + 20 * h),                                  // 6 → 26,随湿度线性升高
+    tree: Math.round(5 + 9 * (1 - Math.pow(1 - h, 1.4))),             // 5 → 14,湿度升高趋密并封顶
+    grass: Math.round(22 + 10 * h),                                   // 22 → 32
+  };
+}
+
+/* ============================================================
+ * PixiJS 初始化与图层
+ * ============================================================ */
+const app = new PIXI.Application();
+let layers, gSky, gGrass, gStream, gSun, entities = [];
+let treeSlots = [], mushSlots = [], grassSlots = [];
+
+(async function init() {
+  await app.init({
+    canvas: document.getElementById('stage'),
+    width: STAGE_W, height: STAGE_H,
+    antialias: true, autoDensity: true,
+    resolution: Math.min(window.devicePixelRatio || 1, 2),
+    background: 0xbfe3ff,
+  });
+  gSky = new PIXI.Graphics();
+  gGrass = new PIXI.Graphics();
+  gStream = new PIXI.Graphics();
+  gSun = new PIXI.Graphics();
+  const grassLayer = new PIXI.Container();
+  const mushLayer = new PIXI.Container();
+  const treeLayer = new PIXI.Container();
+  app.stage.addChild(gSky, gGrass, gStream, grassLayer, mushLayer, treeLayer, gSun);
+  layers = { grassLayer, mushLayer, treeLayer };
+
+  buildSlots();
+  buildEntities();
+  bindInteraction();
+  bindUI();
+
+  let firstTick = true;
+  app.ticker.add(ticker => {
+    const dt = Math.min(ticker.deltaMS / 1000, 0.05);
+    state.time += dt;
+    tick(dt);
+    // 首帧:实体直接落在生态位,避免从舞台左上角 (0,0) 飞入
+    if (firstTick) {
+      firstTick = false;
+      entities.forEach(e => {
+        if (e.target) { e.position.set(e.target.x, e.target.y); }
+      });
+    }
+  });
+})();
+
+/* ---------- 资产生态位(归一化坐标,随地带一起变形/外移) ---------- */
+function buildSlots() {
+  // 树丛:控制 x 间距,带光照漂移系数
+  const usedX = [];
+  for (let i = 0; i < LIMITS.tree; i++) {
+    let u, tries = 0;
+    do {
+      u = 0.07 + rng() * 0.86; tries++;
+    } while (tries < 60 && usedX.some(x => Math.abs(x - u) * STAGE_W < 78));
+    usedX.push(u);
+    treeSlots.push({
+      u, bank: rng() < .5 ? 'top' : 'bottom', v: .1 + rng() * .8,
+      drift: .6 + rng() * .8, variant: rng(), scale: .85 + rng() * .35,
+    });
+  }
+  treeSlots.sort((a, b) => a.v - b.v);
+
+  // 蘑菇:拒绝采样,归一化空间里远离树根(46px)与同类(30px)
+  const placed = [];
+  for (let i = 0; i < LIMITS.mushroom; i++) {
+    let slot, tries = 0;
+    do {
+      slot = {
+        u: .05 + rng() * .90, bank: rng() < .5 ? 'top' : 'bottom',
+        v: .08 + rng() * .84, variant: rng(), scale: .9 + rng() * .45,
+      };
+      tries++;
+    } while (tries < 80 && (
+      placed.some(p => p.bank === slot.bank && Math.abs(p.u - slot.u) * STAGE_W < 30) ||
+      treeSlots.some(t => t.bank === slot.bank && Math.abs(t.u - slot.u) * STAGE_W < 52)
+    ));
+    placed.push(slot);
+    mushSlots.push(slot);
+  }
+  mushSlots.sort((a, b) => a.v - b.v);
+
+  // 草丛
+  for (let i = 0; i < LIMITS.grass; i++) {
+    grassSlots.push({
+      u: .05 + rng() * .90, bank: rng() < .5 ? 'top' : 'bottom',
+      v: .06 + rng() * .88, variant: rng(), scale: .8 + rng() * .45,
+    });
+  }
+  grassSlots.sort((a, b) => a.v - b.v);
+}
+
+/* ---------- 实体造型:色块 + 轮廓 ---------- */
+function makeEntity(kind, slot) {
+  const c = new PIXI.Container();
+  c.eventMode = 'static'; c.cursor = 'pointer';
+  const g = new PIXI.Graphics();
+  const halo = new PIXI.Graphics();
+  c.addChild(g, halo);
+  c.kind = kind; c.slot = slot; c.userDragged = false; c.home = { x: 0, y: 0 };
+  c.draw = () => drawShape(kind, slot, g, halo);
+  c.draw();
+  c.on('pointerdown', e => startDrag(e, c));
+  return c;
+}
+function buildEntities() {
+  grassSlots.forEach(s => { const e = makeEntity('grass', s); layers.grassLayer.addChild(e); entities.push(e); });
+  mushSlots.forEach(s => { const e = makeEntity('mushroom', s); layers.mushLayer.addChild(e); entities.push(e); });
+  treeSlots.forEach(s => { const e = makeEntity('tree', s); layers.treeLayer.addChild(e); entities.push(e); });
+}
+
+function outline(g, w = 2.5, color = 0x2e3b2c) { g.stroke({ width: w, color, cap: 'round', join: 'round' }); }
+
+function drawShape(kind, slot, g, halo) {
+  g.clear(); halo.clear();
+  const { light: l, warmth: wm } = state;
+  const shadowA = .10 + l * .12;
+
+  if (kind === 'tree') {
+    const s = slot.scale;
+    // 阴影
+    g.ellipse(0, 4, 30 * s, 9 * s).fill({ color: 0x1c2a1c, alpha: shadowA });
+    // 树干
+    const trunk = mixRgb([.53, .36, .20], [.45, .30, .18], wm);
+    g.roundRect(-5 * s, -26 * s, 10 * s, 30 * s, 3 * s).fill(rgbNum(trunk)); outline(g, 2);
+    // 树冠(两团),光照低则加深,黄昏转暖
+    const day = hslToRgb(112, .48, mix(.30, .50, l));
+    const duskC = hslToRgb(82, .42, mix(.26, .42, l));
+    const leaf = mixRgb(day, duskC, wm);
+    g.circle(-13 * s, -40 * s, 17 * s).fill(rgbNum(leaf)); outline(g, 2.5);
+    g.circle(11 * s, -44 * s, 20 * s).fill(mixColor(leaf, [1, 1, 1], .12)); outline(g, 2.5);
+    g.circle(2 * s, -58 * s, 15 * s).fill(mixColor(leaf, [0, 0, 0], .10)); outline(g, 2.5);
+    halo.circle(0, -34 * s, 34 * s).stroke({ width: 3, color: 0xe05a4a, alpha: 0 });
+  } else if (kind === 'mushroom') {
+    const s = slot.scale;
+    g.ellipse(0, 3, 13 * s, 4.5 * s).fill({ color: 0x1c2a1c, alpha: shadowA });
+    // 菌柄
+    g.roundRect(-3.2 * s, -10 * s, 6.4 * s, 12 * s, 2.5 * s).fill(0xf3e6cf); outline(g, 2);
+    // 菌盖:两种色相
+    const capDay = slot.variant < .5 ? [.83, .34, .25] : [.80, .58, .28];
+    const capDusk = [.72, .42, .30];
+    const cap = mixRgb(capDay, capDusk, wm);
+    g.poly([[-12 * s, -9 * s], [12 * s, -9 * s], [8 * s, -19 * s], [-8 * s, -19 * s]], true)
+      .fill(rgbNum(cap)); outline(g, 2.2);
+    g.circle(-5 * s, -14 * s, 1.8 * s).fill(0xfff6e8);
+    g.circle(3 * s, -16.5 * s, 1.5 * s).fill(0xfff6e8);
+    g.circle(6.5 * s, -11.5 * s, 1.3 * s).fill(0xfff6e8);
+    halo.circle(0, -10 * s, 18 * s).stroke({ width: 3, color: 0xe05a4a, alpha: 0 });
+  } else {
+    const s = slot.scale;
+    g.ellipse(0, 2, 12 * s, 4 * s).fill({ color: 0x1c2a1c, alpha: shadowA * .8 });
+    const day = hslToRgb(105, .5, mix(.28, .46, l));
+    const duskC = hslToRgb(80, .42, mix(.26, .40, l));
+    const blade = mixRgb(day, duskC, wm);
+    for (let i = -1; i <= 1; i++) {
+      const bx = i * 5 * s, lean = (i * 3 + slot.variant * 4 - 2) * s;
+      g.poly([[bx - 2.6 * s, 0], [bx + 2.6 * s, 0], [bx + lean, -16 * s - Math.abs(i) * -2 * s]], true)
+        .fill(mixColor(blade, [0, 0, 0], Math.abs(i) * .06)); outline(g, 1.8);
+    }
+    halo.circle(0, -8 * s, 16 * s).stroke({ width: 3, color: 0xe05a4a, alpha: 0 });
+  }
+}
+
+/* ---------- 拖拽 ---------- */
+function bindInteraction() {
+  // PixiJS v8 官方拖拽模式:stage 开启事件并给出命中区,全局监听移动/抬起
+  app.stage.eventMode = 'static';
+  app.stage.hitArea = app.screen;
+  app.stage.on('globalpointermove', e => {
+    const d = state.dragging;
+    if (!d) return;
+    d.position.x = clamp(e.global.x - d.dragOff.x, 14, STAGE_W - 14);
+    d.position.y = clamp(e.global.y - d.dragOff.y, 10, STAGE_H - 6);
+  });
+  app.stage.on('globalpointerup', endDrag);
+  app.stage.on('globalpointerupoutside', endDrag);
+  // 鼠标事件兜底:个别环境下 pointerup 可能不触发(如某些无头浏览器/触控板驱动)
+  app.stage.on('globalmouseup', endDrag);
+  app.stage.on('globalmouseupoutside', endDrag);
+  // 原生事件最终兜底:确保拖拽一定能结束
+  window.addEventListener('mouseup', () => { if (state.dragging) endDrag(); });
+  window.addEventListener('pointercancel', () => { if (state.dragging) endDrag(); });
+
+  // PixiJS v8 移除了 dblclick 事件,用原生 DOM 双击 + 命中测试实现"回到生态位"
+  app.view.addEventListener('dblclick', ev => {
+    const rect = app.view.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) / rect.width * STAGE_W;
+    const y = (ev.clientY - rect.top) / rect.height * STAGE_H;
+    const hit = app.renderer.events.rootBoundary.hitTest(x, y);
+    const target = hit && hit.kind ? hit : null;
+    if (target) {
+      target.userDragged = false;
+      flashToast('资产已回到生态位');
+    }
+  });
+}
+function startDrag(e, c) {
+  state.dragging = c;
+  c.alpha = 1; // 拖拽时取消边缘渐隐
+  c.dragOff = { x: e.global.x - c.position.x, y: e.global.y - c.position.y };
+  c.parent.addChild(c); // 置顶
+  c.scale.set(1.1);
+}
+function endDrag() {
+  const c = state.dragging;
+  if (!c) return;
+  state.dragging = null;
+  c.scale.set(1);
+  const hw = streamHalfWidth(state.h);
+  const inStream = c.position.y > STAGE_H / 2 - hw - 6 && c.position.y < STAGE_H / 2 + hw + 6;
+  let hitTree = false;
+  if (c.kind === 'mushroom') {
+    hitTree = entities.some(o => o !== c && o.kind === 'tree' && o.visible &&
+      Math.hypot(o.position.x - c.position.x, (o.position.y - 30) - c.position.y) < 32);
+  }
+  if (inStream || hitTree) {
+    c.userDragged = false;
+    c.haloFlash = 1;
+    flashToast(inStream ? '不能放进小溪,资产弹回草地' : '蘑菇不能压住树丛根部,已弹回');
+  } else {
+    c.userDragged = true;
+    c.home = { x: c.position.x, y: c.position.y };
+  }
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ============================================================
+ * 每帧:参数补间 → 几何 → 生态位目标 → 实体补间
+ * ============================================================ */
+let lastColorKey = '';
+function tick(dt) {
+  const k = 1 - Math.exp(-dt * 3.2); // 平滑系数
+  // 1. 环境参数向目标过渡(滑块直拖时 goal==value,瞬时到位)
+  state.h += (state.goalH - state.h) * k;
+  state.light += (state.goalLight - state.light) * k;
+  state.warmth += (state.goalWarmth - state.warmth) * k;
+  if (Math.abs(state.goalH - state.h) < .0004) state.h = state.goalH;
+  if (Math.abs(state.goalLight - state.light) < .0004) state.light = state.goalLight;
+  if (Math.abs(state.goalWarmth - state.warmth) < .0004) state.warmth = state.goalWarmth;
+
+  const hw = streamHalfWidth(state.h);
+  const bands = grassBands(hw);
+  const counts = targetCounts(state.h);
+  const pos = bandPos(bands);
+
+  // 2. 树丛目标位置(光照 → 向阴面 x 偏移)
+  const trees = entities.filter(e => e.kind === 'tree');
+  trees.forEach((e, i) => {
+    const s = e.slot;
+    if (!e.userDragged) {
+      const shade = (0.5 - state.light) * 110 * s.drift; // 强光(light→1)得到负偏移 → 向左(阴面)
+      e.target = {
+        x: clamp(s.u * STAGE_W + shade, 26, STAGE_W - 26),
+        y: pos(s.bank, s.v).y,
+      };
+    }
+  });
+  // 树丛之间软避让(两轮,只对可见树丛生效)
+  const visTrees = trees.filter(e => e.visible);
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < visTrees.length; i++) for (let j = i + 1; j < visTrees.length; j++) {
+      const a = visTrees[i].userDragged ? visTrees[i].position : visTrees[i].target;
+      const b = visTrees[j].userDragged ? visTrees[j].position : visTrees[j].target;
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || .01;
+      if (d < 46) {
+        const push = (46 - d) / 2;
+        if (!visTrees[i].userDragged) { visTrees[i].target.x -= dx / d * push; visTrees[i].target.y -= dy / d * push * .3; }
+        if (!visTrees[j].userDragged) { visTrees[j].target.x += dx / d * push; visTrees[j].target.y += dy / d * push * .3; }
+      }
+    }
+  }
+  visTrees.forEach(e => {
+    if (!e.userDragged) {
+      // 根部保持在舞台内,树冠允许越界并由边缘渐隐处理
+      e.target.x = clamp(e.target.x, 30, STAGE_W - 30);
+      e.target.y = clamp(e.target.y, 24, STAGE_H - 8);
+    }
+  });
+
+  // 3. 蘑菇目标位置 + 对树根的动态避让
+  const mushs = entities.filter(e => e.kind === 'mushroom');
+  mushs.forEach((e, idx) => {
+    const s = e.slot;
+    e.visible = idx < counts.mushroom;
+    if (!e.visible) return;
+    if (!e.userDragged) {
+      const base = pos(s.bank, s.v);
+      let x = s.u * STAGE_W, y = base.y;
+      // 树丛随光照移动后,蘑菇被树根挤开(仅可见树丛)
+      trees.forEach(t => {
+        if (!t.visible || t.slot.bank !== s.bank) return;
+        const tx = t.userDragged ? t.position.x : t.target.x;
+        const ty = (t.userDragged ? t.position.y : t.target.y) - 26;
+        const dx = x - tx, dy = y - ty, d = Math.hypot(dx, dy);
+        if (d < 46 && d > .01) { x += dx / d * (46 - d); y += dy / d * (46 - d) * .4; }
+      });
+      const band = bands[s.bank];
+      e.target = { x: clamp(x, 18, STAGE_W - 18), y: clamp(y, band[0] + 14, band[1] - 8) };
+    } else {
+      rescueIfFlooded(e, hw, bands);
+    }
+  });
+
+  // 4. 草丛
+  entities.filter(e => e.kind === 'grass').forEach((e, idx) => {
+    e.visible = idx < counts.grass;
+    if (!e.visible) return;
+    if (!e.userDragged) e.target = pos(e.slot.bank, e.slot.v);
+    else rescueIfFlooded(e, hw, bands);
+  });
+  trees.forEach((e, idx) => {
+    e.visible = idx < counts.tree;
+    if (e.visible && e.userDragged) rescueIfFlooded(e, hw, bands);
+  });
+
+  // 5. 实体向目标平滑移动(拖拽中的除外)
+  entities.forEach(e => {
+    if (!e.visible || e === state.dragging) return;
+    const t = e.userDragged ? e.home : e.target;
+    if (!t) return;
+    e.position.x += (t.x - e.position.x) * k;
+    e.position.y += (t.y - e.position.y) * k;
+    // 外移阶段资产靠近画面边缘时渐隐,避免硬裁切(拖拽中的资产保持全不透明)
+    const edgeY = Math.min(e.position.y, STAGE_H - e.position.y);
+    const edgeX = Math.min(e.position.x, STAGE_W - e.position.x);
+    const fadeY = clamp(edgeY / 26, 0, 1);
+    const fadeX = clamp((edgeX - 6) / 22, 0, 1);
+    e.alpha = Math.min(fadeY, fadeX);
+    if (e.haloFlash > 0) {
+      e.haloFlash = Math.max(0, e.haloFlash - dt * 1.8);
+      e.children[1].clear().circle(0, e.kind === 'tree' ? -34 : -10, e.kind === 'tree' ? 34 : 18)
+        .stroke({ width: 3, color: 0xe05a4a, alpha: e.haloFlash });
+    }
+  });
+
+  // 6. 地形重绘
+  drawTerrain(hw, bands);
+  const colorKey = state.light.toFixed(3) + '|' + state.warmth.toFixed(3);
+  if (colorKey !== lastColorKey) {
+    lastColorKey = colorKey;
+    entities.forEach(e => e.draw());
+    drawSun();
+  }
+
+  syncUI(hw, bands, counts);
+}
+
+function bandPos(bands) {
+  return (bank, v) => {
+    const b = bands[bank];
+    return { x: 0, y: b[0] + v * (b[1] - b[0]) };
+  };
+}
+// 用户拖放的资产被扩张的小溪淹没 → 平移到最近的草地带
+function rescueIfFlooded(e, hw, bands) {
+  const top = STAGE_H / 2 - hw, bot = STAGE_H / 2 + hw;
+  if (e.position.y < top - 4 || e.position.y > bot + 4) {
+    e.home = { x: e.position.x, y: e.position.y }; return;
+  }
+  const toTop = Math.abs(e.position.y - (top - 16));
+  const toBot = Math.abs(e.position.y - (bot + 16));
+  const y = toTop < toBot ? top - 16 : bot + 16;
+  e.home = { x: clamp(e.position.x, 20, STAGE_W - 20), y: clamp(y, -40, STAGE_H + 30) };
+}
+
+/* ---------- 地形:天空 / 草地 / 小溪 ---------- */
+function drawTerrain(hw, bands) {
+  const l = state.light, wm = state.warmth;
+  // 天空:晴天蓝 → 黄昏橙;光照低时压暗
+  const skyDay = hslToRgb(205, .55, mix(.62, .82, l));
+  const skyDusk = hslToRgb(28, .62, mix(.55, .72, l));
+  gSky.clear().rect(0, 0, STAGE_W, STAGE_H).fill(rgbNum(mixRgb(skyDay, skyDusk, wm)));
+
+  // 草地:光照低 → 颜色变深;黄昏转暖橄榄色
+  const gDay = hslToRgb(108, .50, mix(.26, .48, l));
+  const gDusk = hslToRgb(86, .42, mix(.24, .42, l));
+  const grassCol = rgbNum(mixRgb(gDay, gDusk, wm));
+  const grassEdge = mixColor(mixRgb(gDay, gDusk, wm), [0, 0, 0], .25);
+  gGrass.clear();
+  [bands.top, bands.bottom].forEach(b => {
+    gGrass.rect(0, b[0], STAGE_W, b[1] - b[0]).fill(grassCol).stroke({ width: 2, color: grassEdge });
+  });
+
+  // 小溪:圆角水面 + 波纹 + 两岸轮廓
+  const wDay = hslToRgb(202, .6, mix(.42, .62, l));
+  const wDusk = hslToRgb(350, .30, mix(.40, .56, l));
+  const water = rgbNum(mixRgb(wDay, wDusk, wm));
+  const y0 = STAGE_H / 2 - hw;
+  gStream.clear();
+  gStream.rect(0, y0, STAGE_W, hw * 2).fill(water);
+  gStream.rect(0, y0 + hw * .35, STAGE_W, hw * .5).fill({ color: 0xffffff, alpha: .10 });
+  // 流动波纹
+  for (let line = 0; line < 3; line++) {
+    const yy = y0 + hw * (0.3 + line * .25);
+    gStream.moveTo(0, yy);
+    for (let x = 0; x <= STAGE_W; x += 24) {
+      gStream.lineTo(x, yy + Math.sin(x * .025 + state.time * 2.2 + line * 2) * 3.2);
+    }
+  }
+  gStream.stroke({ width: 1.6, color: 0xffffff, alpha: .55 });
+  // 岸线
+  gStream.moveTo(0, y0).lineTo(STAGE_W, y0).moveTo(0, y0 + hw * 2).lineTo(STAGE_W, y0 + hw * 2)
+    .stroke({ width: 3, color: mixColor(mixRgb(wDay, wDusk, wm), [0, 0, 0], .35), alpha: .9 });
+}
+
+function drawSun() {
+  gSun.clear();
+  const x = mix(STAGE_W * .18, STAGE_W * .82, state.light);
+  // 保持在天空区:最低也落在 y=110,避免高湿时沉入溪水
+  const y = mix(110, 56, state.light);
+  const isMoon = state.light < .3 && state.warmth < .5;
+  const dayCol = mixRgb([1, .92, .55], [1, .80, .45], state.warmth);
+  const col = isMoon ? [.92, .94, 1] : dayCol;
+  gSun.circle(x, y, isMoon ? 22 : 28).fill({ color: rgbNum(col), alpha: .95 });
+  if (!isMoon) gSun.circle(x, y, 36).fill({ color: rgbNum(col), alpha: .18 });
+}
+
+/* ============================================================
+ * UI 绑定与读数
+ * ============================================================ */
+const $ = id => document.getElementById(id);
+const humSlider = $('humidity'), lightSlider = $('light');
+let toastTimer = null;
+function flashToast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+function bindUI() {
+  humSlider.addEventListener('input', () => {
+    if (state.hold) return;
+    state.goalH = state.h = Number(humSlider.value) / 100;
+    clearPresetActive();
+  });
+  lightSlider.addEventListener('input', () => {
+    state.goalLight = state.light = Number(lightSlider.value) / 100;
+    state.goalWarmth = state.warmth = 0; // 手动拖光照退出黄昏暖色调
+    clearPresetActive();
+  });
+  humSlider.addEventListener('pointerup', () => {
+    // 靠近临界时软吸附并锁定,方便停住观察
+    if (!state.hold && Math.abs(state.h - H_CRIT) < .02) engageHold(true);
+  });
+
+  document.querySelectorAll('.preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = PRESETS[btn.dataset.preset];
+      disengageHold();
+      state.goalH = p.h; state.goalLight = p.light; state.goalWarmth = p.warmth;
+      document.querySelectorAll('.preset').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  $('holdBtn').addEventListener('click', () => state.hold ? disengageHold() : engageHold(false));
+}
+function clearPresetActive() {
+  document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+}
+function engageHold(fromSnap) {
+  state.hold = true;
+  state.goalH = H_CRIT;
+  if (fromSnap) state.h = H_CRIT;
+  humSlider.disabled = true;
+  $('holdBtn').classList.add('on');
+  $('holdBtn').textContent = '释放临界(恢复湿度调节)';
+  flashToast('已锁定临界:W = G = 200px,可拖动光照与资产观察');
+}
+function disengageHold() {
+  state.hold = false;
+  humSlider.disabled = false;
+  $('holdBtn').classList.remove('on');
+  $('holdBtn').textContent = '停在临界点(W = G)';
+}
+
+function syncUI(hw, bands, counts) {
+  // 过渡期间滑块拇指跟随实时值
+  if (document.activeElement !== humSlider) humSlider.value = Math.round(state.h * 100);
+  if (document.activeElement !== lightSlider) lightSlider.value = Math.round(state.light * 100);
+  $('humVal').textContent = Math.round(state.h * 100) + '%';
+  $('lightVal').textContent = Math.round(state.light * 100) + '%';
+
+  const W = Math.round(hw * 2), G = Math.round(bands.bandW);
+  $('wVal').textContent = W + 'px';
+  $('gVal').textContent = G + 'px';
+  $('treeVal').textContent = counts.tree + ' / 14';
+  $('mushVal').textContent = counts.mushroom + ' / 26';
+  $('grassVal').textContent = counts.grass + ' / 34';
+
+  // 模式说明
+  const line = $('modeLine');
+  const nearCrit = Math.abs(state.h - H_CRIT) < .012;
+  if (state.h < H_CRIT - .012) {
+    line.innerHTML = '挤占阶段:湿度↑ → 小溪变宽,岸边草地被挤窄;蘑菇密度升高';
+  } else if (state.h > H_CRIT + .012) {
+    line.innerHTML = '<b>外移阶段</b>:草地宽度锁定 200px,整体向画面外侧平移';
+  } else {
+    line.innerHTML = '<b>临界状态</b>:W = G = 200px' + (state.hold ? '(已锁定)' : '');
+  }
+
+  // 临界横幅
+  const banner = $('banner');
+  if (nearCrit || state.hold) {
+    $('bannerText').innerHTML =
+      `临界湿度 50%:小溪宽 <b>${W}px</b> = 单侧草地 <b>${G}px</b>` +
+      (state.hold ? ' · 已锁定,可继续拖光照/资产观察' : ' · 继续加湿将转为整体外移');
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+</script>
+</body>
+</html>
