@@ -1,0 +1,645 @@
+<title>幻兽头颅 · 颌骨连杆机构</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0c0e13; --panel:rgba(17,21,30,.88); --line:rgba(255,255,255,.09);
+  --fg:#e9e4d8; --dim:#9a9484; --accent:#e8a33d; --accent2:#5fc4c9;
+  --danger:#e15555; --ok:#7fc97f;
+}
+html,body{height:100%;}
+body{background:var(--bg);color:var(--fg);font-family:"Segoe UI",system-ui,-apple-system,"Microsoft YaHei",sans-serif;overflow:hidden;}
+#c{position:fixed;inset:0;width:100%;height:100%;touch-action:none;outline:none;}
+.panel{position:fixed;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  backdrop-filter:blur(8px);padding:12px 14px;box-shadow:0 6px 24px rgba(0,0,0,.45);z-index:5;}
+#hdr{top:max(12px,env(safe-area-inset-top,0px));left:max(14px,env(safe-area-inset-left,0px));padding:10px 14px;}
+#hdr h1{margin:0;font-size:17px;letter-spacing:.5px;}
+#hdr p{margin:2px 0 0;font-size:11.5px;color:var(--dim);}
+#controls{left:max(14px,env(safe-area-inset-left,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));width:302px;}
+#info{top:max(12px,env(safe-area-inset-top,0px));right:max(14px,env(safe-area-inset-right,0px));width:292px;max-height:46vh;overflow:auto;}
+#info h2{margin:0 0 6px;font-size:13.5px;color:var(--accent);}
+#info .body{font-size:12px;line-height:1.55;color:var(--fg);}
+#info .muted{color:var(--dim);}
+.row{margin:9px 0;}
+.row label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);margin-bottom:4px;}
+.row label b{color:var(--fg);font-variant-numeric:tabular-nums;}
+input[type=range]{width:100%;accent-color:var(--accent);height:22px;}
+.btns{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+button{background:#232a38;border:1px solid var(--line);color:var(--fg);border-radius:8px;
+  padding:6px 11px;font-size:12.5px;cursor:pointer;transition:background .15s,border-color .15s;}
+button:hover{background:#2e3749;}
+button.on{background:var(--accent);border-color:var(--accent);color:#1a1206;font-weight:600;}
+button:disabled{opacity:.45;cursor:default;}
+.seg{display:flex;gap:6px;}
+.seg button{flex:1;}
+.lbl{font-size:12.5px;color:var(--dim);display:block;margin-bottom:4px;}
+.stat{font-size:12px;color:var(--dim);}
+.stat b{color:var(--accent2);font-variant-numeric:tabular-nums;}
+.badge{display:inline-block;background:var(--danger);color:#fff;font-size:11px;border-radius:6px;
+  padding:2px 8px;font-weight:600;animation:blink .5s infinite alternate;}
+@keyframes blink{from{opacity:1}to{opacity:.55}}
+.hidden{display:none!important;}
+.legend{display:flex;flex-wrap:wrap;gap:5px 10px;margin-top:10px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;color:var(--dim);}
+.chip{display:inline-flex;align-items:center;gap:4px;}
+.chip i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+#toast{position:fixed;top:max(14px,env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);
+  background:rgba(60,24,24,.92);border:1px solid rgba(225,85,85,.5);color:#ffd9d9;font-size:13px;
+  padding:7px 16px;border-radius:10px;z-index:8;transition:opacity .25s;pointer-events:none;}
+#hint{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  background:rgba(20,26,38,.85);border:1px solid var(--line);color:var(--accent2);font-size:12.5px;
+  padding:7px 14px;border-radius:20px;z-index:6;pointer-events:none;transition:opacity .6s;white-space:nowrap;}
+.tag{position:fixed;z-index:4;pointer-events:none;font-size:10.5px;color:#cfe8ea;
+  background:rgba(10,14,20,.62);border:1px solid rgba(95,196,201,.35);border-radius:5px;
+  padding:1px 6px;transform:translate(-50%,-130%);white-space:nowrap;opacity:0;transition:opacity .3s;}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin:6px 0;font-size:11.5px;}
+.chain .cs{padding:2px 7px;border-radius:6px;background:#232a38;border:1px solid var(--line);}
+.chain .cs.sel{background:var(--accent);color:#1a1206;font-weight:600;}
+.chain .cs.live{border-color:var(--accent2);color:var(--accent2);box-shadow:0 0 6px rgba(95,196,201,.5);}
+.chain .ar{color:var(--dim);font-size:10px;}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px;margin-top:6px;}
+.kv span{color:var(--dim);}
+.kv b{font-variant-numeric:tabular-nums;font-weight:600;}
+@media (max-width:760px){
+  #hdr h1{font-size:14px;} #hdr p{font-size:10px;}
+  #controls{width:min(86vw,300px);padding:10px 12px;}
+  #info{width:min(58vw,270px);max-height:34vh;top:auto;bottom:max(14px,env(safe-area-inset-bottom,0px));}
+  #hint{display:none;}
+}
+</style>
+
+<canvas id="c"></canvas>
+
+<div id="hdr" class="panel">
+  <h1>幻兽头颅 · 颌骨连杆机构</h1>
+  <p>拖动皮肤层剥开外观 · 点击连杆查看传动 · 滑块控制张口</p>
+</div>
+
+<div id="info" class="panel">
+  <h2>连杆检视</h2>
+  <div class="body" id="infoBody"><span class="muted">剥开皮肤后,点选内部的连杆、摇臂、滑块或软组织,可查看它当前传到哪一节。</span></div>
+</div>
+
+<div id="controls" class="panel">
+  <div class="row">
+    <label>张口角度 <b><span id="angVal">0.0</span>°</b></label>
+    <input id="ang" type="range" min="0" max="46" step="0.1" value="0">
+  </div>
+  <div class="row btns">
+    <button id="preset" title="刚好卡在最大张口的位置">⚓ 最大张口位 40°</button>
+    <span id="jamBadge" class="badge hidden">齿列顶住 · 限位!</span>
+  </div>
+  <div class="row">
+    <label>皮肤层剥离 <b><span id="peelVal">0</span>%</b></label>
+    <input id="peel" type="range" min="0" max="100" value="0">
+  </div>
+  <div class="row">
+    <span class="lbl">口型替换件(沿滑轨换件,闭口换件会顶到齿列)</span>
+    <div class="seg" id="partBtns">
+      <button data-p="fang" class="on">撕咬型</button>
+      <button data-p="comb">滤食型</button>
+      <button data-p="tube">鸣管型</button>
+    </div>
+  </div>
+  <div class="row btns">
+    <button id="demo">▶ 演示下颌</button>
+    <button id="slow">🐢 慢放</button>
+    <button id="pause">⏸ 暂停</button>
+  </div>
+  <div class="row stat">齿列间隙 <b id="gap">2</b> mm · <span id="stateTxt">闭合</span> <span id="swapTxt" class="muted"></span></div>
+  <div class="legend">
+    <span class="chip"><i style="background:#ded3b8"></i>骨骼</span>
+    <span class="chip"><i style="background:#73b8c7"></i>软骨</span>
+    <span class="chip"><i style="background:#b85c4d"></i>皮肤</span>
+    <span class="chip"><i style="background:#d97a85"></i>软组织</span>
+    <span class="chip"><i style="background:#8c949e"></i>金属连杆</span>
+  </div>
+</div>
+
+<div id="toast" class="hidden">齿列让位 · 碰撞缓冲中…</div>
+<div id="hint">↔ 在头颅上左右拖动可剥开皮肤层</div>
+<div class="tag" id="tagHinge">铰链</div>
+<div class="tag" id="tagCrank">摇臂</div>
+<div class="tag" id="tagSlider">嘴角滑块</div>
+<div class="tag" id="tagSoft">软组织(拉伸变薄)</div>
+
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@9.33.3/babylon.js"></script>
+<script>
+(function(){
+"use strict";
+const DEG=Math.PI/180, THMAX=40*DEG;
+const V3=(x,y,z)=>new BABYLON.Vector3(x,y,z);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const smooth=t=>t*t*(3-2*t);
+
+// ---------- DOM ----------
+const $=id=>document.getElementById(id);
+const canvas=$('c');
+const ui={ang:$('ang'),angVal:$('angVal'),peel:$('peel'),peelVal:$('peelVal'),gap:$('gap'),
+  stateTxt:$('stateTxt'),swapTxt:$('swapTxt'),jam:$('jamBadge'),toast:$('toast'),hint:$('hint'),
+  info:$('infoBody'),preset:$('preset'),demo:$('demo'),slow:$('slow'),pause:$('pause')};
+
+// ---------- state ----------
+let thetaReqDeg=0, theta=0, prevTheta=0, thetaDot=0, jam=false;
+let peel=0, timeScale=1, paused=false, demoOn=false, demoT=0;
+let gumYield=0, gumVel=0, contactNow=false;
+let currentPart='fang', swap=null, selected=null, pulseU=0, infoTimer=0;
+let hintDone=false;
+
+// ---------- engine / scene ----------
+const engine=new BABYLON.Engine(canvas,true,{stencil:true});
+const scene=new BABYLON.Scene(engine);
+scene.clearColor=new BABYLON.Color4(0.047,0.055,0.075,1);
+scene.fogMode=BABYLON.Scene.FOGMODE_EXP2; scene.fogDensity=0.022; scene.fogColor=new BABYLON.Color3(0.047,0.055,0.075);
+
+const camera=new BABYLON.ArcRotateCamera('cam',1.22,1.12,7.4,V3(0.7,1.0,0),scene);
+camera.attachControl(canvas,true);
+camera.lowerRadiusLimit=3.2; camera.upperRadiusLimit=15;
+camera.upperBetaLimit=1.52; camera.wheelDeltaPercentage=0.01; camera.panningSensibility=1200;
+
+const hemi=new BABYLON.HemisphericLight('h',V3(0.2,1,0.25),scene);
+hemi.intensity=0.55; hemi.groundColor=new BABYLON.Color3(0.12,0.13,0.2);
+const sun=new BABYLON.DirectionalLight('sun',V3(-0.45,-1,-0.4),scene);
+sun.position=V3(3,6,4); sun.intensity=0.95;
+const sg=new BABYLON.ShadowGenerator(1024,sun);
+sg.usePoissonSampling=true; sg.setDarkness(0.55);
+const glow=new BABYLON.GlowLayer('glow',scene); glow.intensity=0.55;
+
+// ---------- materials ----------
+function mkMat(name,diff,spec,alpha,emis){
+  const m=new BABYLON.StandardMaterial(name,scene);
+  m.diffuseColor=diff; m.specularColor=spec||new BABYLON.Color3(0.12,0.12,0.12);
+  if(alpha!==undefined&&alpha<1)m.alpha=alpha;
+  if(emis)m.emissiveColor=emis;
+  return m;
+}
+const MAT={
+  bone: mkMat('bone',new BABYLON.Color3(0.87,0.81,0.69),new BABYLON.Color3(0.28,0.25,0.2)),
+  cart: mkMat('cart',new BABYLON.Color3(0.42,0.70,0.76),new BABYLON.Color3(0.45,0.55,0.55),0.88),
+  skin: mkMat('skin',new BABYLON.Color3(0.70,0.35,0.29),new BABYLON.Color3(0.32,0.2,0.18)),
+  jawSkin: mkMat('jawSkin',new BABYLON.Color3(0.66,0.33,0.28),new BABYLON.Color3(0.3,0.18,0.16),0.94),
+  soft: mkMat('soft',new BABYLON.Color3(0.86,0.47,0.51),new BABYLON.Color3(0.4,0.28,0.28),0.92),
+  teeth:mkMat('teeth',new BABYLON.Color3(0.95,0.93,0.85),new BABYLON.Color3(0.55,0.55,0.5)),
+  jamT: mkMat('jamT',new BABYLON.Color3(0.95,0.93,0.85),new BABYLON.Color3(0.55,0.55,0.5)),
+  metal:mkMat('metal',new BABYLON.Color3(0.52,0.56,0.61),new BABYLON.Color3(0.65,0.68,0.72)),
+  eye:  mkMat('eye',new BABYLON.Color3(0.08,0.04,0),null,1,new BABYLON.Color3(1,0.55,0.08)),
+  pulse:mkMat('pulse',new BABYLON.Color3(0.2,0.1,0),null,1,new BABYLON.Color3(1,0.62,0.15)),
+  spark:mkMat('spark',new BABYLON.Color3(0.3,0.05,0.05),null,1,new BABYLON.Color3(1,0.25,0.15)),
+};
+const rodMat1=MAT.metal.clone('m1'), rodMat2=MAT.metal.clone('m2'),
+      crankMat=MAT.metal.clone('mc'), sliderMat=MAT.cart.clone('ms'), lugMat=MAT.metal.clone('ml');
+
+// ---------- mesh helpers ----------
+function box(name,w,h,d,pos,mat,parent,rz){
+  const m=BABYLON.MeshBuilder.CreateBox(name,{width:w,height:h,depth:d},scene);
+  m.position.copyFrom(pos); if(rz)m.rotation.z=rz; if(mat)m.material=mat; if(parent)m.parent=parent;
+  return m;
+}
+function ball(name,dia,pos,mat,parent){
+  const m=BABYLON.MeshBuilder.CreateSphere(name,{diameter:dia,segments:20},scene);
+  m.position.copyFrom(pos); if(mat)m.material=mat; if(parent)m.parent=parent; return m;
+}
+function spike(name,dia,h,pos,mat,parent,pointDown,rz,rx){
+  const m=BABYLON.MeshBuilder.CreateCylinder(name,{height:h,diameterTop:pointDown?dia:0.001,diameterBottom:pointDown?0.001:dia,tessellation:12},scene);
+  m.position.copyFrom(pos); if(rz)m.rotation.z=rz; if(rx)m.rotation.x=rx;
+  if(mat)m.material=mat; if(parent)m.parent=parent; return m;
+}
+const UP=V3(0,1,0);
+function setRod(mesh,a,b){
+  const d=b.subtract(a), len=d.length();
+  mesh.position.copyFrom(a.add(b).scale(0.5));
+  mesh.scaling.y=len;
+  const dn=d.scale(1/len);
+  const axis=BABYLON.Vector3.Cross(UP,dn); const al=axis.length();
+  if(al<1e-6){ mesh.rotationQuaternion=dn.y<0?BABYLON.Quaternion.RotationAxis(V3(1,0,0),Math.PI):BABYLON.Quaternion.Identity(); }
+  else mesh.rotationQuaternion=BABYLON.Quaternion.RotationAxis(axis.scale(1/al),Math.acos(clamp(dn.y,-1,1)));
+}
+function rod(name,r,mat){
+  const m=BABYLON.MeshBuilder.CreateCylinder(name,{height:1,diameter:r*2,tessellation:14},scene);
+  m.material=mat; return m;
+}
+
+// ---------- skull (static) ----------
+const cranium=ball('cranium',1.7,V3(-0.2,1.62,0),MAT.bone); cranium.scaling=V3(1.15,1.0,0.95);
+const snout=box('snout',2.1,0.55,0.78,V3(0.95,1.30,0),MAT.bone,null,-4*DEG);
+box('brow',0.8,0.28,0.95,V3(0.1,1.92,0),MAT.bone,null,-6*DEG);
+spike('hornL',0.22,0.85,V3(-0.62,2.28,0.34),MAT.bone,null,false,0,0.5);
+spike('hornR',0.22,0.85,V3(-0.62,2.28,-0.34),MAT.bone,null,false,0,-0.5);
+spike('snoutSpike',0.12,0.3,V3(1.15,1.62,0),MAT.cart);
+spike('snoutSpike2',0.1,0.24,V3(1.6,1.55,0),MAT.cart);
+const earFin=spike('ear',0.5,0.7,V3(-0.35,2.05,0.62),MAT.cart,null,false,-0.35,0.9);
+ball('eye',0.2,V3(0.30,1.74,0.80),MAT.eye);
+ball('eye2',0.2,V3(0.30,1.74,-0.80),MAT.eye);
+
+// upper gum (cartilage, spring-mounted -> yields) + upper teeth
+const gumNode=new BABYLON.TransformNode('gumNode',scene);
+const gumStrip=box('gum',1.75,0.14,0.56,V3(1.05,0.99,0.12),MAT.cart,gumNode);
+gumStrip.metadata={L:'gum'};
+const UPPER_TIP=0.88;
+for(let i=0;i<7;i++){
+  spike('ut'+i,0.09,0.14,V3(0.46+i*0.24,0.95,0.28),MAT.teeth,gumNode,true);
+}
+// jam pair: upper rear fangs (z=±0.14), tip at (0.66,0.74)
+const upFang1=spike('uf1',0.11,0.21,V3(0.66,0.845,0.14),MAT.jamT,gumNode,true);
+const upFang2=spike('uf2',0.11,0.21,V3(0.66,0.845,-0.14),MAT.jamT,gumNode,true);
+
+// ---------- mandible (hinge) ----------
+const H={x:0.15,y:0.95};
+const hinge=new BABYLON.TransformNode('hinge',scene);
+hinge.position=V3(H.x,H.y,0);
+const mandBody=box('mandBody',2.0,0.30,0.52,V3(0.95,-0.32,0),MAT.bone,hinge,-3*DEG);
+box('ramus',0.34,0.75,0.46,V3(-0.10,0.22,0),MAT.bone,hinge,12*DEG);
+spike('chin',0.12,0.4,V3(1.95,-0.42,0),MAT.bone,hinge,false,-1.35,0);
+for(let i=0;i<7;i++){
+  spike('lt'+i,0.085,0.12,V3(0.55+i*0.2,-0.15,0.28),MAT.teeth,hinge,false);
+}
+const lowFang=spike('lf',0.11,0.34,V3(0.48,-0.04,0.28),MAT.jamT,hinge,false); // tip local (0.48,0.13)
+// crank lug + pin at A
+const lug=box('lug',0.16,0.16,0.4,V3(-0.30,-0.20,0.28),lugMat,hinge);
+lug.metadata={L:'input'};
+const pin=BABYLON.MeshBuilder.CreateCylinder('pin',{height:0.2,diameter:0.07},scene);
+pin.rotation.x=Math.PI/2; pin.position=V3(-0.30,-0.20,0.46); pin.parent=hinge; pin.material=lugMat;
+pin.metadata={L:'input'};
+// lower jaw skin sleeve (child of hinge, peels separately)
+const jawSkin=box('jawSkin',1.85,0.36,0.6,V3(0.95,-0.32,0),MAT.jawSkin,hinge,-3*DEG);
+jawSkin.metadata={skin:true};
+
+// ---------- linkage (2D solve, z=0.46 plane) ----------
+const LK={A_local:{x:-0.30,y:-0.20},P1:{x:0.35,y:0.45},r1:0.24,r2:0.30,L1:0.55,L2:0.72,
+  off2:-140*DEG,G0:{x:1.05,y:0.55},gdir:{x:Math.cos(-18*DEG),y:Math.sin(-18*DEG)}};
+function solveLinkage(th,prev){
+  const c=Math.cos(th),s=Math.sin(th);
+  const ax=H.x+LK.A_local.x*c+LK.A_local.y*s;
+  const ay=H.y-LK.A_local.x*s+LK.A_local.y*c;
+  const dx=ax-LK.P1.x, dy=ay-LK.P1.y, d=Math.hypot(dx,dy);
+  const a=(d*d+LK.r1*LK.r1-LK.L1*LK.L1)/(2*d);
+  let h2=LK.r1*LK.r1-a*a; if(h2<0)h2=0;
+  const h=Math.sqrt(h2), ux=dx/d, uy=dy/d;
+  const bx=LK.P1.x+a*ux, by=LK.P1.y+a*uy;
+  const c1a={x:bx-h*uy,y:by+h*ux}, c1b={x:bx+h*uy,y:by-h*ux};
+  let C1;
+  if(prev&&prev.C1){
+    C1=((c1a.x-prev.C1.x)**2+(c1a.y-prev.C1.y)**2)<((c1b.x-prev.C1.x)**2+(c1b.y-prev.C1.y)**2)?c1a:c1b;
+  }else C1=c1a.y>c1b.y?c1a:c1b;
+  const phi=Math.atan2(C1.y-LK.P1.y,C1.x-LK.P1.x);
+  const p2=phi+LK.off2;
+  const C2={x:LK.P1.x+LK.r2*Math.cos(p2),y:LK.P1.y+LK.r2*Math.sin(p2)};
+  const ex=LK.G0.x-C2.x, ey=LK.G0.y-C2.y;
+  const t0=-(ex*LK.gdir.x+ey*LK.gdir.y);
+  let disc=LK.L2*LK.L2-(ex*ex+ey*ey)+t0*t0; if(disc<0)disc=0;
+  const sq=Math.sqrt(disc), ta=t0+sq, tb=t0-sq;
+  let t;
+  if(prev&&prev.t!==undefined)t=Math.abs(ta-prev.t)<Math.abs(tb-prev.t)?ta:tb;
+  else t=Math.max(ta,tb);
+  return {A:{x:ax,y:ay},C1,C2,phi,t,S:{x:LK.G0.x+t*LK.gdir.x,y:LK.G0.y+t*LK.gdir.y}};
+}
+let sol=solveLinkage(0,null), solD=solveLinkage(0.002,sol);
+
+// bell crank
+const crankNode=new BABYLON.TransformNode('crank',scene);
+crankNode.position=V3(LK.P1.x,LK.P1.y,0.46);
+const hub=BABYLON.MeshBuilder.CreateCylinder('hub',{height:0.1,diameter:0.17},scene);
+hub.rotation.x=Math.PI/2; hub.parent=crankNode; hub.material=crankMat; hub.metadata={L:'crank'};
+const arm1=box('arm1',0.26,0.055,0.055,V3(0.12,0,0),crankMat,crankNode); arm1.metadata={L:'crank'};
+const arm2=box('arm2',0.32,0.055,0.055,V3(Math.cos(LK.off2)*0.15,Math.sin(LK.off2)*0.15,0),crankMat,crankNode,LK.off2);
+arm2.metadata={L:'crank'};
+ball('c1dot',0.09,V3(LK.r1,0,0),crankMat,crankNode).metadata={L:'crank'};
+ball('c2dot',0.09,V3(Math.cos(LK.off2)*LK.r2,Math.sin(LK.off2)*LK.r2,0),crankMat,crankNode).metadata={L:'crank'};
+// hinge pin visual
+const hingePin=BABYLON.MeshBuilder.CreateCylinder('hingePin',{height:0.62,diameter:0.12},scene);
+hingePin.rotation.x=Math.PI/2; hingePin.position=V3(H.x,H.y,0.1); hingePin.material=MAT.metal;
+hingePin.metadata={L:'input'};
+
+const rod1=rod('L1',0.038,rodMat1); rod1.metadata={L:'L1'};
+const rod2=rod('L2',0.032,rodMat2); rod2.metadata={L:'L2'};
+// guide rail + slider block
+const railLen=1.15;
+const rail=box('rail',railLen,0.045,0.07,V3(LK.G0.x+0.12*LK.gdir.x,LK.G0.y+0.12*LK.gdir.y,0.46),MAT.metal,null,-18*DEG);
+const slider=box('slider',0.17,0.13,0.13,V3(0,0,0.46),sliderMat); slider.metadata={L:'slider'};
+const strut=BABYLON.MeshBuilder.CreateCylinder('strut',{height:0.18,diameter:0.05},scene);
+strut.rotation.x=Math.PI/2; strut.material=MAT.metal;
+
+// ---------- soft tissue membrane ----------
+const U={x:1.05,y:1.00,z:0.30};
+const membrane=ball('membrane',1,V3(0,0,0),MAT.soft);
+membrane.metadata={L:'soft'};
+let restLen=0, stretch=1;
+
+// ---------- mouth parts (口型件) ----------
+const PARTS={
+  fang:{name:'撕咬型口型件',h:0.27,color:new BABYLON.Color3(0.72,0.24,0.18)},
+  comb:{name:'滤食型口型件',h:0.23,color:new BABYLON.Color3(0.16,0.55,0.55)},
+  tube:{name:'鸣管型口型件',h:0.17,color:new BABYLON.Color3(0.80,0.55,0.16)},
+};
+function buildPart(key){
+  const g=new BABYLON.TransformNode('part_'+key,scene);
+  const m=mkMat('pm_'+key,PARTS[key].color,new BABYLON.Color3(0.4,0.35,0.3));
+  box(key+'_plate',0.85,0.05,0.30,V3(0.425,0.025,0),m,g);
+  if(key==='fang')for(let i=0;i<4;i++)spike(key+'f'+i,0.075,0.22,V3(0.14+i*0.19,0.16,0),m,g);
+  if(key==='comb')for(let i=0;i<7;i++)box(key+'c'+i,0.028,0.18,0.26,V3(0.09+i*0.115,0.14,0),m,g);
+  if(key==='tube'){
+    const t=BABYLON.MeshBuilder.CreateCylinder(key+'t',{height:0.5,diameter:0.13,tessellation:14},scene);
+    t.rotation.z=Math.PI/2; t.position=V3(0.45,0.115,0); t.material=m; t.parent=g;
+    const ring=BABYLON.MeshBuilder.CreateTorus(key+'r',{diameter:0.15,thickness:0.035,tessellation:18},scene);
+    ring.rotation.y=Math.PI/2; ring.position=V3(0.70,0.115,0); ring.material=m; ring.parent=g;
+  }
+  g.setEnabled(false);
+  return g;
+}
+const partGroups={fang:buildPart('fang'),comb:buildPart('comb'),tube:buildPart('tube')};
+
+// carrier follows slider S; seat holds the mounted part
+const carrier=new BABYLON.TransformNode('carrier',scene);
+const seat=new BABYLON.TransformNode('seat',scene);
+seat.parent=carrier; seat.position=V3(0.08,-0.10,0);
+partGroups.fang.parent=seat; partGroups.fang.setEnabled(true);
+
+// swap rail (appears during part swap)
+const swapRail=box('swapRail',2.6,0.035,0.09,V3(1.9,0.3,0.30),MAT.metal);
+swapRail.visibility=0;
+
+// ---------- skin (peel group) ----------
+const skinNode=new BABYLON.TransformNode('skinNode',scene);
+const craniumSkin=ball('sk1',1,V3(-0.2,1.62,0),MAT.skin,skinNode); craniumSkin.scaling=V3(2.05,1.78,1.72);
+const snoutSkin=ball('sk2',1,V3(0.95,1.34,0),MAT.skin,skinNode); snoutSkin.scaling=V3(2.3,0.72,0.94);
+const cheekSkin=ball('sk3',1,V3(0.42,1.02,0.12),MAT.skin,skinNode); cheekSkin.scaling=V3(1.7,1.35,1.25);
+[craniumSkin,snoutSkin,cheekSkin].forEach(m=>m.metadata={skin:true});
+
+// ---------- ground / shadows ----------
+const ground=BABYLON.MeshBuilder.CreateGround('g',{width:30,height:30},scene);
+ground.position.y=-0.58;
+const gm=mkMat('gm',new BABYLON.Color3(0.09,0.10,0.13),new BABYLON.Color3(0.05,0.05,0.08));
+ground.material=gm; ground.receiveShadows=true;
+[cranium,snout,mandBody,craniumSkin,snoutSkin,cheekSkin,jawSkin].forEach(m=>sg.addShadowCaster(m));
+
+// ---------- transmission pulses ----------
+const pulses=[];
+for(let i=0;i<3;i++){const p=ball('pulse'+i,0.085,V3(0,-5,0),MAT.pulse);pulses.push(p);}
+const SEG_NAMES=['下颌曲柄','L1 主连杆','摇臂','L2 次连杆','嘴角滑块'];
+function pulsePos(u){
+  if(u<0.35){const t=u/0.35;return {x:lerp(sol.A.x,sol.C1.x,t),y:lerp(sol.A.y,sol.C1.y,t),seg:1};}
+  if(u<0.5){const t=(u-0.35)/0.15,ang=sol.phi+LK.off2*t,r=lerp(LK.r1,LK.r2,t);
+    return {x:LK.P1.x+r*Math.cos(ang),y:LK.P1.y+r*Math.sin(ang),seg:2};}
+  if(u<0.85){const t=(u-0.5)/0.35;return {x:lerp(sol.C2.x,sol.S.x,t),y:lerp(sol.C2.y,sol.S.y,t),seg:3};}
+  const t=(u-0.85)/0.15;return {x:sol.S.x+LK.gdir.x*0.3*t,y:sol.S.y+LK.gdir.y*0.3*t,seg:4};
+}
+
+// ---------- contact spark (fang pair near max opening) ----------
+const spark=ball('spark',0.12,V3(0,-5,0),MAT.spark);
+
+// ---------- selection highlight ----------
+const selMats={L1:rodMat1,L2:rodMat2,crank:crankMat,slider:sliderMat,input:lugMat};
+const SEL2SEG={input:0,L1:1,crank:2,L2:3,slider:4};
+
+// ---------- UI handlers ----------
+ui.ang.addEventListener('input',()=>{thetaReqDeg=parseFloat(ui.ang.value);demoOn=false;ui.demo.textContent='▶ 演示下颌';ui.demo.classList.remove('on');});
+ui.peel.addEventListener('input',()=>{peel=parseInt(ui.peel.value)/100;dismissHint();});
+ui.preset.addEventListener('click',()=>{thetaReqDeg=40;ui.ang.value=40;demoOn=false;ui.demo.textContent='▶ 演示下颌';ui.demo.classList.remove('on');});
+ui.demo.addEventListener('click',()=>{demoOn=!demoOn;ui.demo.textContent=demoOn?'⏹ 停止演示':'▶ 演示下颌';ui.demo.classList.toggle('on',demoOn);});
+ui.slow.addEventListener('click',()=>{timeScale=timeScale===1?0.15:1;ui.slow.classList.toggle('on',timeScale!==1);});
+ui.pause.addEventListener('click',()=>{paused=!paused;ui.pause.textContent=paused?'▶ 继续':'⏸ 暂停';ui.pause.classList.toggle('on',paused);});
+document.getElementById('partBtns').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  const key=b.dataset.p;
+  if(key===currentPart||swap)return;
+  swap={u:0,dur:3.0,old:currentPart,next:key,
+    seatPos:seat.absolutePosition.clone(),seatRot:carrier.rotation.z};
+  const og=partGroups[swap.old];
+  og.parent=null; og.position.copyFrom(seat.absolutePosition); og.rotation.z=carrier.rotation.z;
+  document.querySelectorAll('#partBtns button').forEach(x=>x.disabled=true);
+});
+function dismissHint(){if(!hintDone){hintDone=true;ui.hint.style.opacity=0;}}
+
+// pointer: peel drag + selection
+let peeling=false;
+scene.onPointerObservable.add(pi=>{
+  const ev=pi.event;
+  if(pi.type===BABYLON.PointerEventTypes.POINTERDOWN){
+    const pick=pi.pickInfo;
+    if(pick&&pick.hit&&pick.pickedMesh.metadata&&pick.pickedMesh.metadata.skin){
+      peeling=true; dismissHint(); camera.detachControl(canvas);
+    }
+  }else if(pi.type===BABYLON.PointerEventTypes.POINTERMOVE){
+    if(peeling){
+      peel=clamp(peel+(ev.movementX||0)*0.004,0,1);
+      ui.peel.value=Math.round(peel*100);
+    }
+  }else if(pi.type===BABYLON.PointerEventTypes.POINTERUP){
+    if(peeling){peeling=false;camera.attachControl(canvas,true);}
+  }else if(pi.type===BABYLON.PointerEventTypes.POINTERPICK){
+    const pick=pi.pickInfo;
+    if(pick&&pick.hit&&pick.pickedMesh.metadata&&pick.pickedMesh.metadata.L){
+      selected=pick.pickedMesh.metadata.L; renderInfo();
+    }
+  }
+});
+
+// ---------- info panel ----------
+function fmt(v,d){return (v===undefined||v===null||!isFinite(v))?'—':v.toFixed(d===undefined?2:d);}
+function renderInfo(){
+  if(!selected){ui.info.innerHTML='<span class="muted">剥开皮肤后,点选内部的连杆、摇臂、滑块或软组织,可查看它当前传到哪一节。</span>';return;}
+  const dphi=(solD.phi-sol.phi)/0.002, dt_=(solD.t-sol.t)/0.002;
+  const moving=Math.abs(thetaDot)>0.05;
+  const pSeg=moving?pulsePos((pulseU)%1).seg:-1;
+  let h='';
+  if(selected==='soft'){
+    h='<b>嘴角软组织</b><div class="kv"><span>拉伸率</span><b>'+fmt(stretch*100,1)+'%</b>'
+      +'<span>当前厚度</span><b>'+fmt(12*Math.pow(stretch,-0.7),1)+' mm(静止 12 mm)</b>'
+      +'<span>状态</span><b>'+(stretch>1.05?'被拉伸 · 厚度变薄':stretch<0.98?'松弛堆叠':'自然')+'</b></div>'
+      +'<div class="muted" style="margin-top:6px">软组织两端分别固定在颅骨与嘴角滑块上,张口越大拉得越薄,贴在其表面的口型件随之下移并轻微旋转。</div>';
+  }else if(selected==='gum'){
+    h='<b>上齿列软骨基座</b><div class="kv"><span>让位量</span><b>'+fmt(gumYield*100,1)+' mm</b>'
+      +'<span>状态</span><b>'+(contactNow?'被口型件顶起 · 等待回弹':gumYield>0.005?'回弹中…':'就位')+'</b></div>'
+      +'<div class="muted" style="margin-top:6px">换件滑入时若与齿列相碰,软骨基座会短暂让位,通过后弹簧回弹。张口足够大时换件不会相碰。</div>';
+  }else{
+    const seg=SEL2SEG[selected];
+    h='<b>'+SEG_NAMES[seg]+'</b>'+(paused?'<span class="muted">(已暂停 · 当前帧)</span>':'')
+      +'<div class="chain">'+SEG_NAMES.map((n,i)=>'<span class="cs'+(i===seg?' sel':'')+(i===pSeg?' live':'')+'">'+n+'</span>').join('<span class="ar">→</span>')+'</div>'
+      +'<div class="kv"><span>下颌角 θ</span><b>'+fmt(theta/DEG,1)+'°</b>'
+      +'<span>角速度 θ̇</span><b>'+(moving?fmt(thetaDot/DEG,1)+' °/s':'静止')+'</b>'
+      +'<span>摇臂传动比</span><b>'+fmt(dphi,2)+' rad/rad</b>'
+      +'<span>滑块行程比</span><b>'+fmt(dt_/DEG/10,1)+' mm/°</b>'
+      +'<span>当前传至</span><b>'+(moving?SEG_NAMES[pSeg]:'—(静止,可拖滑块或开演示)')+'</b></div>'
+      +'<div class="muted" style="margin-top:6px">橙色脉冲沿传动链流动,亮起的节段即运动当前传到的位置。</div>';
+  }
+  ui.info.innerHTML=h;
+}
+
+// ---------- swap update ----------
+let railY=0.9;
+function lowerTipY(th){return H.y-1.75*Math.sin(th)-0.09*Math.cos(th);}
+function updateSwap(dt){
+  if(!swap)return;
+  swap.u+=dt/swap.dur*(contactNow?0.6:1);
+  const u=Math.min(swap.u,1);
+  const mountX=sol.S.x+0.08;
+  const og=partGroups[swap.old], ng=partGroups[swap.next];
+  contactNow=false;
+  const collide=(key,x)=>{
+    if(x<2.0&&x+0.85>0.45){
+      const intr=railY+PARTS[key].h-UPPER_TIP;
+      if(intr>0){contactNow=true;return Math.min(intrusion=intr,0.25);}
+    }
+    return 0;
+  };
+  let yieldT=0;
+  if(u<0.10){ // old: seat -> rail
+    const t=smooth(u/0.10);
+    og.position.set(lerp(swap.seatPos.x,mountX,t),lerp(swap.seatPos.y,railY,t),lerp(swap.seatPos.z,0.30,t));
+    og.rotation.z=lerp(swap.seatRot,0,t);
+  }else if(u<0.45){ // old slides out
+    const x=lerp(mountX,3.4,smooth((u-0.10)/0.35));
+    og.position.set(x,railY,0.30); og.rotation.z=0;
+    yieldT=Math.max(yieldT,collide(swap.old,x));
+  }else{
+    if(og.isEnabled())og.setEnabled(false);
+    if(u>=0.50){
+      if(!ng.isEnabled()){ng.setEnabled(true);ng.parent=null;ng.rotation.z=0;}
+      if(u<0.88){ // new slides in
+        const x=lerp(3.4,mountX,smooth((u-0.50)/0.38));
+        ng.position.set(x,railY,0.30);
+        yieldT=Math.max(yieldT,collide(swap.next,x));
+      }else{ // seat
+        const t=smooth((u-0.88)/0.12);
+        const sp=seat.absolutePosition;
+        ng.position.set(lerp(mountX,sp.x,t),lerp(railY,sp.y,t),lerp(0.30,sp.z,t));
+        ng.rotation.z=lerp(0,carrier.rotation.z,t);
+      }
+    }
+  }
+  gumTarget=Math.max(gumTarget,yieldT);
+  if(u>=1){
+    ng.parent=seat; ng.position.set(0,0,0); ng.rotation.set(0,0,0);
+    currentPart=swap.next; swap=null;
+    document.querySelectorAll('#partBtns button').forEach(x=>{
+      x.disabled=false; x.classList.toggle('on',x.dataset.p===currentPart);
+    });
+  }
+}
+let gumTarget=0, intrusion=0;
+
+// ---------- main loop ----------
+const tags={hinge:$('tagHinge'),crank:$('tagCrank'),slider:$('tagSlider'),soft:$('tagSoft')};
+function project(p){
+  const v=BABYLON.Vector3.Project(p,BABYLON.Matrix.IdentityReadOnly,scene.getTransformMatrix(),
+    camera.viewport.toGlobal(engine.getRenderWidth(),engine.getRenderHeight()));
+  return {x:v.x*canvas.clientWidth/canvas.width,y:v.y*canvas.clientHeight/canvas.height,ok:v.z>0&&v.z<1};
+}
+function setTag(el,p,show){
+  const s=project(p);
+  if(show&&s.ok){el.style.left=s.x+'px';el.style.top=s.y+'px';el.style.opacity=1;}
+  else el.style.opacity=0;
+}
+
+scene.registerBeforeRender(()=>{
+  const dtRaw=Math.min(engine.getDeltaTime()/1000,0.05);
+  const dt=paused?0:dtRaw*timeScale;
+
+  if(demoOn&&!paused){
+    demoT+=dt*0.9;
+    thetaReqDeg=22+18*Math.sin(demoT);
+    ui.ang.value=thetaReqDeg.toFixed(1);
+  }
+  const reqRad=thetaReqDeg*DEG;
+  jam=reqRad>THMAX+1e-6;
+  theta=Math.min(reqRad,THMAX);
+  thetaDot=dtRaw>0?(theta-prevTheta)/dtRaw:0; prevTheta=theta;
+
+  sol=solveLinkage(theta,sol);
+  solD=solveLinkage(theta+0.002,sol);
+
+  // hinge (with jam shudder)
+  const thetaVis=theta+(jam?0.004*Math.sin(performance.now()*0.09):0);
+  hinge.rotation.z=-thetaVis;
+  jawSkin.position.z=1.1*peel;
+
+  // linkage meshes
+  crankNode.rotation.z=sol.phi;
+  setRod(rod1,V3(sol.A.x,sol.A.y,0.46),V3(sol.C1.x,sol.C1.y,0.46));
+  setRod(rod2,V3(sol.C2.x,sol.C2.y,0.46),V3(sol.S.x,sol.S.y,0.46));
+  slider.position.set(sol.S.x,sol.S.y,0.46);
+  strut.position.set(sol.S.x,sol.S.y,0.38);
+
+  // soft tissue
+  const dx=sol.S.x-U.x, dy=sol.S.y-U.y;
+  const len=Math.hypot(dx,dy);
+  if(restLen===0)restLen=len;
+  stretch=len/restLen;
+  membrane.position.set((U.x+sol.S.x)/2,(U.y+sol.S.y)/2,U.z);
+  membrane.rotation.z=Math.atan2(dy,dx);
+  membrane.scaling.set(len*0.62,0.30*Math.pow(stretch,-0.5),0.12*Math.pow(stretch,-0.7));
+
+  // carrier + mounted part follow soft tissue
+  carrier.position.set(sol.S.x,sol.S.y,0.30);
+  carrier.rotation.z=-18*DEG-(stretch-1)*0.8;
+
+  // swap rail height follows lower teeth
+  railY=clamp(lowerTipY(theta)+0.04,0.34,1.2);
+  swapRail.position.y=railY-0.05;
+  gumTarget=0;
+  updateSwap(dt);
+  swapRail.visibility=swap?Math.min(1,swapRail.visibility+dtRaw*4):Math.max(0,swapRail.visibility-dtRaw*4);
+
+  // gum yield spring
+  if(!paused){
+    gumVel+=((contactNow?55:38)*(gumTarget-gumYield)-11*gumVel)*dt;
+    gumYield+=gumVel*dt;
+  }
+  gumNode.position.y=gumYield;
+  MAT.cart.emissiveColor=contactNow?new BABYLON.Color3(0.25,0.35,0.35):BABYLON.Color3.Black();
+
+  // skin peel
+  skinNode.position.z=1.9*peel; skinNode.position.x=0.25*peel; skinNode.rotation.y=-0.3*peel;
+  MAT.skin.alpha=1-0.72*peel;
+  MAT.jawSkin.alpha=0.94-0.62*peel;
+
+  // pulses
+  if(!paused)pulseU=(pulseU+dt*(0.28*Math.abs(thetaDot)+ (demoOn?0.05:0.0))+1)%1;
+  pulses.forEach((p,i)=>{
+    const pos=pulsePos((pulseU+i/3)%1);
+    p.position.set(pos.x,pos.y,0.46);
+    p.scaling.setAll(0.7+0.5*Math.abs(Math.sin((pulseU+i/3)*Math.PI*2)));
+  });
+
+  // jam indicators
+  ui.jam.classList.toggle('hidden',!jam);
+  const jamGlow=jam?(0.5+0.4*Math.sin(performance.now()*0.02)):0;
+  MAT.jamT.emissiveColor=new BABYLON.Color3(jamGlow*0.9,jamGlow*0.08,jamGlow*0.05);
+  // fang contact spark near limit
+  const lt={x:H.x+0.48*Math.cos(theta)+0.13*Math.sin(theta),y:H.y-0.48*Math.sin(theta)+0.13*Math.cos(theta)};
+  const fd=Math.hypot(lt.x-0.66,lt.y-0.74);
+  if(fd<0.09){spark.position.set((lt.x+0.66)/2,(lt.y+0.74)/2,0.28);spark.scaling.setAll((0.09-fd)*14);}
+  else spark.position.y=-5;
+
+  // toast
+  ui.toast.classList.toggle('hidden',!(contactNow&&swap));
+
+  // HUD text
+  ui.angVal.textContent=(theta/DEG).toFixed(1);
+  ui.peelVal.textContent=Math.round(peel*100);
+  ui.gap.textContent=Math.max(0,Math.round((UPPER_TIP-lowerTipY(theta))*100));
+  ui.stateTxt.textContent=jam?'顶住 · 限位':theta<2*DEG?'闭合':'张开';
+  ui.swapTxt.textContent=swap?('· 换件中 '+Math.round(Math.min(swap.u,1)*100)+'%'):'';
+
+  // selection highlight
+  Object.entries(selMats).forEach(([k,m])=>{
+    m.emissiveColor=(k===selected)?new BABYLON.Color3(0.45,0.3,0.08):BABYLON.Color3.Black();
+  });
+
+  // labels
+  const showTags=peel>0.3;
+  setTag(tags.hinge,V3(H.x,H.y,0.5),showTags);
+  setTag(tags.crank,V3(LK.P1.x,LK.P1.y,0.5),showTags);
+  setTag(tags.slider,V3(sol.S.x,sol.S.y,0.5),showTags);
+  setTag(tags.soft,V3((U.x+sol.S.x)/2,(U.y+sol.S.y)/2,0.4),showTags);
+
+  // info refresh
+  infoTimer+=dtRaw;
+  if(selected&&infoTimer>0.12){infoTimer=0;renderInfo();}
+});
+
+engine.runRenderLoop(()=>scene.render());
+window.addEventListener('resize',()=>engine.resize());
+renderInfo();
+})();
+</script>
