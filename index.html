@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自动喂食器 · 可拆解剖面仿真 (PixiJS)</title>
+<style>
+  :root { --panel: rgba(248,250,252,.92); --line:#cbd5e1; --ink:#0f172a; --muted:#475569; --red:#dc2626; --blue:#1d4ed8; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; color:var(--ink); }
+  #pixi-host { position:fixed; inset:0; }
+  canvas { display:block; }
+  .card {
+    position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    box-shadow:0 6px 24px rgba(15,23,42,.12); padding:12px 14px; backdrop-filter: blur(6px);
+    font-size:13px; line-height:1.55; pointer-events:auto; user-select:none;
+  }
+  #hud { top:14px; left:14px; min-width:238px; }
+  #hud h1 { font-size:14px; margin:0 0 8px; letter-spacing:.5px; }
+  .row { display:flex; justify-content:space-between; gap:14px; }
+  .row b { font-variant-numeric: tabular-nums; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-weight:700; font-size:12px; }
+  .tag.flow { background:#dcfce7; color:#15803d; }
+  .tag.jam  { background:#fee2e2; color:#b91c1c; }
+  .tag.idle { background:#e2e8f0; color:#475569; }
+  .tag.empty{ background:#ffedd5; color:#c2410c; }
+  #formula { top:262px; left:14px; max-width:252px; font-size:12px; color:var(--muted); }
+  #formula code { background:#eef2ff; padding:1px 5px; border-radius:5px; color:#3730a3; font-size:11.5px; }
+  #formula .crit { color:var(--red); font-weight:700; }
+  .btns { display:flex; gap:6px; margin-top:9px; flex-wrap:wrap; }
+  button {
+    border:1px solid var(--line); background:#fff; border-radius:8px; padding:5px 10px;
+    font-size:12px; cursor:pointer; color:var(--ink);
+  }
+  button:hover { background:#f1f5f9; }
+  #hint { bottom:12px; left:50%; transform:translateX(-50%); font-size:12px; color:var(--muted);
+          background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:6px 16px; pointer-events:none; }
+  #banner { top:16px; left:50%; transform:translateX(-50%); padding:10px 22px; border-radius:10px;
+            font-weight:800; font-size:15px; display:none; letter-spacing:1px; }
+  #banner.show { display:block; }
+  #banner.jam { background:#dc2626; color:#fff; }
+  #banner.flow { background:#16a34a; color:#fff; }
+  #knob-caption { position:fixed; right:26px; top:262px; width:230px; text-align:center;
+                  font-size:12px; color:var(--muted); pointer-events:none; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi-viewport@4.34.4/dist/viewport.min.js"></script>
+</head>
+<body>
+<div id="pixi-host"></div>
+
+<div id="hud" class="card">
+  <h1>自动喂食器 · 剖面仿真</h1>
+  <div class="row"><span>旋钮档位 s</span><b id="r-setting">8.0</b></div>
+  <div class="row"><span>闸门开度 g(s)</span><b id="r-gap">—</b></div>
+  <div class="row"><span>绞龙转速 ω(s)</span><b id="r-rpm">—</b></div>
+  <div class="row"><span>轴向输送速度 v</span><b id="r-feed">—</b></div>
+  <div class="row"><span>碗内堆积高度</span><b id="r-pile">—</b></div>
+  <div class="row"><span>出粮状态</span><span id="r-status" class="tag idle">待机</span></div>
+  <div class="btns">
+    <button id="btn-pause">暂停</button>
+    <button id="btn-demo">堵塞边界演示</button>
+    <button id="btn-refill">补满粮斗</button>
+    <button id="btn-reset">复位</button>
+  </div>
+</div>
+
+<div id="formula" class="card">
+  <div><b>标定关系（物理与显示同源）</b></div>
+  <div style="margin-top:6px">闸门：<code>g(s)=4+5.111(s−1)</code> px</div>
+  <div>绞龙：<code>ω(s)=60+60(s−1)</code> °/s</div>
+  <div>输送：<code>v=ω·L/2π</code>，导程 L=26px</div>
+  <div style="margin-top:6px">颗粒直径 D=8px；当 g&lt;D 即 <span class="crit">s ≤ 1.78</span> 时
+    闸门底缘卡住粮粒，绞龙继续旋转但无粮通过（堵塞边界）。</div>
+</div>
+
+<div id="banner"></div>
+<div id="knob-caption">出粮量旋钮：拖动 / 滚轮调档，松手吸合到整数档<br>红色弧段 = 堵塞区（s ≤ 1.78）</div>
+<div id="hint">滚轮缩放 · 空白拖拽平移 · 拖左右外壳拆开剖面 · 点红色闸门可单独拖动，松手按档位弹回</div>
+
+<script src="app.js"></script>
+</body>
+</html>

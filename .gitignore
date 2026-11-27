@@ -16,3 +16,8 @@ node_modules/
 __pycache__/
 .venv/
 venv/
+
+# 测试临时产物
+tests/extracted.js
+tests/cp*/
+tests/chrome-profile/
