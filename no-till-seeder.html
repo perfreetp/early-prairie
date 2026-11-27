@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>免耕播种单体剖切仿真</title>
+<style>
+  :root{
+    --bg:#0e141b; --panel:#161f2a; --panel2:#1d2937; --line:#2a3a4d;
+    --fg:#dbe6ef; --dim:#8aa0b4; --accent:#38d9a9; --accent2:#4dabf7;
+    --warn:#ffa94d; --bad:#ff6b6b; --good:#69db7c;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#eef2f6; --panel:#ffffff; --panel2:#f4f7fa; --line:#d4dde6;
+      --fg:#1c2b3a; --dim:#5c7186; --accent:#0ca678; --accent2:#1c7ed6;
+      --warn:#e8590c; --bad:#e03131; --good:#2f9e44;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg);color:var(--fg);
+    font:13px/1.5 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    overflow:hidden;
+  }
+  #app{position:fixed;inset:0}
+  #app canvas{display:block}
+  .panel{
+    position:absolute;background:color-mix(in srgb,var(--panel) 92%,transparent);
+    backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;box-shadow:0 8px 28px rgba(0,0,0,.35);
+  }
+  #controls{top:14px;left:14px;width:300px;max-height:calc(100vh - 28px);overflow:auto}
+  #controls h1{font-size:15px;margin:0 0 2px}
+  #controls .sub{color:var(--dim);font-size:11px;margin-bottom:10px}
+  .ctrl{margin:11px 0}
+  .ctrl label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+  .ctrl label b{color:var(--accent);font-weight:600}
+  input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+  .crit-mark{position:relative;height:0}
+  .crit-mark i{position:absolute;top:-11px;width:2px;height:8px;background:var(--warn);display:block}
+  .crit-mark em{position:absolute;top:-26px;font-style:normal;font-size:10px;color:var(--warn);transform:translateX(-50%)}
+  .btnrow{display:flex;gap:8px;margin:10px 0 6px;flex-wrap:wrap}
+  button{
+    background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+    border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;
+  }
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#06120d;font-weight:600}
+  .readouts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  .ro{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .ro .k{font-size:10px;color:var(--dim)}
+  .ro .v{font-size:14px;font-weight:600}
+  .ro .v.warn{color:var(--warn)} .ro .v.bad{color:var(--bad)} .ro .v.good{color:var(--good)}
+  #badge{
+    display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;
+    border:1px solid var(--good);color:var(--good);margin-top:6px;
+  }
+  #badge.warn{border-color:var(--warn);color:var(--warn)}
+  #badge.bad{border-color:var(--bad);color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent)}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--dim)}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px}
+  #schematic{margin-top:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px}
+  #schematic canvas{display:block;margin:0 auto}
+  #schematic .cap{text-align:center;font-size:11px;color:var(--dim);margin-top:2px}
+  #chainPanel{top:14px;right:14px;width:238px;display:none}
+  #chainPanel h2{font-size:13px;margin:0 0 8px;color:var(--accent2)}
+  .node{
+    display:flex;align-items:center;gap:8px;padding:7px 9px;margin:5px 0;border-radius:8px;
+    border:1px solid var(--line);background:var(--panel2);font-size:12px;
+    transition:all .15s;
+  }
+  .node .dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}
+  .node.live{border-color:var(--accent);box-shadow:0 0 12px color-mix(in srgb,var(--accent) 45%,transparent)}
+  .node.live .dot{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .node .st{margin-left:auto;font-size:10px;color:var(--dim)}
+  .node.live .st{color:var(--accent)}
+  #hint{
+    position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+    background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);
+    border-radius:20px;padding:6px 16px;font-size:11px;color:var(--dim);white-space:nowrap;
+  }
+  #flash{
+    position:absolute;top:50%;left:55%;width:120px;height:120px;border-radius:50%;
+    transform:translate(-50%,-50%);pointer-events:none;opacity:0;
+    background:radial-gradient(circle,color-mix(in srgb,var(--bad) 55%,transparent) 0%,transparent 70%);
+  }
+  #flash.on{animation:flash .5s ease-out}
+  @keyframes flash{0%{opacity:1;transform:translate(-50%,-50%) scale(.5)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.4)}}
+  @media (max-width:760px){
+    #controls{width:calc(100vw - 28px);max-height:52vh}
+    #chainPanel{top:auto;bottom:44px;right:14px;width:210px}
+    #hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div class="panel" id="controls">
+  <h1>免耕播种单体 · 剖切仿真</h1>
+  <div class="sub">指夹式排种盘 / 双圆盘开沟器 / 镇压轮联动演示</div>
+
+  <div class="ctrl">
+    <label>剖切面（拖动剖开外壳）<b id="clipVal">外形</b></label>
+    <input type="range" id="clip" min="0" max="100" value="100">
+  </div>
+
+  <div class="ctrl">
+    <label>前进速度 <b><span id="speedVal">6.0</span> km/h</b></label>
+    <input type="range" id="speed" min="3" max="11" step="0.1" value="6">
+    <div class="crit-mark"><i style="left:52.5%"></i><em style="left:52.5%">漏播临界 7.2</em></div>
+  </div>
+
+  <div class="ctrl">
+    <label>开沟深度 <b><span id="depthVal">50</span> mm</b></label>
+    <input type="range" id="depth" min="30" max="100" step="1" value="50">
+  </div>
+
+  <div class="ctrl">
+    <label>镇压轮压力 <b><span id="pressVal">800</span> N</b></label>
+    <input type="range" id="press" min="200" max="1600" step="20" value="800">
+  </div>
+
+  <div class="btnrow">
+    <button class="primary" id="playBtn">⏸ 暂停</button>
+    <button id="stepBtn">⏭ 单步</button>
+    <button id="presetBtn">⚙ 临界预置</button>
+    <button id="resetBtn">↺ 复位</button>
+  </div>
+
+  <span id="badge">正常播种</span>
+
+  <div class="readouts">
+    <div class="ro"><div class="k">排种盘转速</div><div class="v" id="rpmVal">–</div></div>
+    <div class="ro"><div class="k">理论株距</div><div class="v" id="spacingVal">200 mm</div></div>
+    <div class="ro"><div class="k">漏播率(近18穴)</div><div class="v" id="missVal">0%</div></div>
+    <div class="ro"><div class="k">覆土厚度</div><div class="v" id="coverVal">–</div></div>
+    <div class="ro"><div class="k">落种前后偏移</div><div class="v" id="offsetVal">–</div></div>
+    <div class="ro"><div class="k">帧号</div><div class="v" id="frameVal">0</div></div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#4dabf7"></i>充种区</span>
+    <span><i style="background:#ffa94d"></i>清种区</span>
+    <span><i style="background:#ff6b6b"></i>投种口</span>
+    <span><i style="background:#69db7c"></i>持种型孔</span>
+  </div>
+
+  <div id="schematic">
+    <canvas id="discCanvas" width="252" height="252"></canvas>
+    <div class="cap">排种盘相位示意图（型孔 · 三区 · 投种口逐帧对齐）</div>
+  </div>
+</div>
+
+<div class="panel" id="chainPanel">
+  <h2>⛓ 传动链动力追踪</h2>
+  <div id="nodes"></div>
+  <div class="sub" style="color:var(--dim);font-size:10px;margin-top:8px">
+    仿真暂停时光点仍沿链条流动，可逐帧观察动力传递位置。再次点击空白处退出。
+  </div>
+</div>
+
+<div id="flash"></div>
+<div id="hint">左键旋转 · 右键平移 · 滚轮缩放 · 空格暂停/播放 · → 单步 · 暂停后点击排种盘追踪传动链</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js",
+    "three/addons/": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============ 常量与状态 ============ */
+const CELLS = 18;                 // 排种盘型孔数
+const SPACING = 0.20;             // 目标株距 m
+const DISC_R = 0.16;              // 排种盘半径 m
+const DISC_Y = 0.62, DISC_Z = 0.10;
+const A_FILL = THREE.MathUtils.degToRad(-55);    // 充种区入口（角度递减方向=盘转向）
+const A_CLEAN = THREE.MathUtils.degToRad(-125);  // 清种区入口
+const A_DROP = THREE.MathUtils.degToRad(140);    // 投种口固定相位角
+// 归一化到 [0,2π) 的固定阈值（盘转角增大时，型孔归一化角度单调递减）
+const TWO_PI = Math.PI*2;
+const FILL_ENTRY = ((A_FILL%TWO_PI)+TWO_PI)%TWO_PI;   // 305°
+const CLEAN_ENTRY = ((A_CLEAN%TWO_PI)+TWO_PI)%TWO_PI; // 235°
+const DROP_ANGLE = A_DROP;                             // 140°
+const DROP_EPS = 0.5;             // 投种触发扇区(rad余量，受帧步长约束)
+const RPM_CRIT = 33.3;            // 漏播临界转速(rpm)，对应 7.2 km/h
+const DT = 1/30;                  // 固定物理帧长，保证相位逐帧对齐
+
+const state = {
+  playing: true,
+  frame: 0,
+  theta: 0,                 // 排种盘累计转角(rad)，顺时针增大
+  speed: 6/3.6,             // m/s
+  depth: 0.05,              // m
+  pressure: 800,            // N
+  clip: 1,                  // 1=完整外形 0=完全剖开
+  cells: [],                // {filled, miss}
+  seeds: [],                // 活动种子 {mesh,mode,...}
+  events: [],               // 近18次投种事件 miss?
+  inspect: false,
+};
+for(let i=0;i<CELLS;i++) state.cells.push({filled:false, miss:false});
+
+/* ============ 渲染器 / 场景 ============ */
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.localClippingEnabled = true;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e141b);
+scene.fog = new THREE.Fog(0x0e141b, 6, 14);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.05, 50);
+camera.position.set(1.55, 1.05, 1.75);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.1, 0.38, 0);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI*0.52;
+controls.minDistance = 0.5; controls.maxDistance = 6;
+
+scene.add(new THREE.HemisphereLight(0xbcd3e8, 0x2a2018, 0.85));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(2.5, 4, 2);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-2; sun.shadow.camera.right=2;
+sun.shadow.camera.top=2; sun.shadow.camera.bottom=-2;
+scene.add(sun);
+
+/* ============ 剖切面（只作用于外壳类部件） ============ */
+const Z_BACK=-0.20, Z_FRONT=0.32;
+const clipPlane = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
+function updateClip(){
+  clipPlane.constant = -(Z_FRONT - state.clip*(Z_FRONT-Z_BACK));
+  document.getElementById('clipVal').textContent =
+    state.clip>0.98 ? '外形' : state.clip<0.05 ? '全剖开' : Math.round(state.clip*100)+'%';
+}
+updateClip();
+
+const shellMats = [];
+function shellMat(color, opts={}){
+  const m = new THREE.MeshStandardMaterial({color, clippingPlanes:[clipPlane], ...opts});
+  shellMats.push(m); return m;
+}
+const mat = {
+  housing: shellMat(0x3b6ea5, {metalness:.45, roughness:.45}),
+  cover:   shellMat(0x2f5a8a, {metalness:.5, roughness:.4, side:THREE.DoubleSide}),
+  hopper:  shellMat(0xd97942, {metalness:.25, roughness:.55, side:THREE.DoubleSide}),
+  frame:   new THREE.MeshStandardMaterial({color:0x8a94a0, metalness:.7, roughness:.35}),
+  dark:    new THREE.MeshStandardMaterial({color:0x2b333c, metalness:.6, roughness:.4}),
+  disc:    new THREE.MeshStandardMaterial({color:0xc9b37e, metalness:.75, roughness:.3}),
+  hole:    new THREE.MeshStandardMaterial({color:0x1a1208, roughness:.8}),
+  tube:    new THREE.MeshStandardMaterial({color:0xc05a3a, metalness:.3, roughness:.5}),
+  opener:  new THREE.MeshStandardMaterial({color:0x9aa6b2, metalness:.85, roughness:.25}),
+  wheel:   new THREE.MeshStandardMaterial({color:0x333a42, roughness:.75}),
+  hub:     new THREE.MeshStandardMaterial({color:0xb8c0c9, metalness:.8, roughness:.3}),
+  seed:    new THREE.MeshStandardMaterial({color:0xe0a84e, roughness:.55}),
+  spring:  new THREE.MeshStandardMaterial({color:0xd8dee5, metalness:.9, roughness:.25}),
+};
+
+const machine = new THREE.Group(); scene.add(machine);
+function addMesh(geo, material, parent=machine){
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  parent.add(mesh); return mesh;
+}
+
+/* ============ 机架（简化平行四连杆） ============ */
+const toolbar = addMesh(new THREE.BoxGeometry(0.09,0.09,1.1), mat.frame);
+toolbar.position.set(-0.35,1.02,0);
+for(const z of [-0.16,0.16]){
+  for(const yy of [0.78,0.92]){
+    const arm = addMesh(new THREE.BoxGeometry(0.55,0.035,0.035), mat.frame);
+    arm.position.set(-0.18,yy,z);
+  }
+}
+
+/* ============ 排种器壳体 + 种箱（被剖切） ============ */
+const housing = addMesh(new THREE.BoxGeometry(0.42,0.42,0.34), mat.housing);
+housing.position.set(0, DISC_Y, 0.02);
+const sideCover = addMesh(new THREE.CylinderGeometry(0.205,0.205,0.025,48), mat.cover);
+sideCover.rotation.x = Math.PI/2;
+sideCover.position.set(0,DISC_Y,0.20);
+
+const hopperGroup = new THREE.Group(); machine.add(hopperGroup);
+function buildHopper(){
+  hopperGroup.clear();
+  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.07,0.34,4,1,true), mat.hopper);
+  funnel.rotation.y = Math.PI/4;
+  funnel.position.set(0,0.98,0.02);
+  funnel.castShadow = true; hopperGroup.add(funnel);
+  const bin = new THREE.Mesh(new THREE.BoxGeometry(0.30,0.20,0.30), mat.hopper);
+  bin.position.set(0,1.22,0.02); bin.castShadow=true; hopperGroup.add(bin);
+  // 种箱内储种
+  const poolGeo = new THREE.SphereGeometry(0.011,8,8);
+  for(let i=0;i<46;i++){
+    const s = new THREE.Mesh(poolGeo, mat.seed);
+    s.position.set((pseudo(i)-.5)*0.22, 0.86+pseudo(i+99)*0.30, 0.02+(pseudo(i+7)-.5)*0.18);
+    hopperGroup.add(s);
+  }
+}
+function pseudo(n){ const x=Math.sin(n*127.1+311.7)*43758.5453; return x-Math.floor(x); }
+buildHopper();
+
+/* ============ 排种盘（型孔盘，内部件不剖切） ============ */
+const discGroup = new THREE.Group();
+discGroup.position.set(0,DISC_Y,DISC_Z);
+machine.add(discGroup);
+const discPlate = addMesh(new THREE.CylinderGeometry(DISC_R,DISC_R,0.02,56), mat.disc, discGroup);
+discPlate.rotation.x = Math.PI/2;
+const hub = addMesh(new THREE.CylinderGeometry(0.035,0.035,0.05,24), mat.hub, discGroup);
+hub.rotation.x = Math.PI/2;
+
+const holeGeo = new THREE.CylinderGeometry(0.014,0.014,0.024,16);
+const seedOnDiscGeo = new THREE.SphereGeometry(0.010,10,10);
+const cellMeshes = [];
+for(let i=0;i<CELLS;i++){
+  const a0 = i/CELLS*Math.PI*2;
+  const r = DISC_R*0.72;
+  const g = new THREE.Group();
+  g.position.set(Math.sin(a0)*r, Math.cos(a0)*r, 0);
+  const hole = new THREE.Mesh(holeGeo, mat.hole);
+  hole.rotation.x = Math.PI/2; g.add(hole);
+  const seed = new THREE.Mesh(seedOnDiscGeo, mat.seed);
+  seed.position.z = 0.018; seed.visible=false; g.add(seed);
+  discGroup.add(g);
+  cellMeshes.push({g, seed, a0});
+}
+// 选中环
+const selRing = addMesh(new THREE.TorusGeometry(DISC_R+0.025,0.006,10,64),
+  new THREE.MeshBasicMaterial({color:0x38d9a9}), discGroup);
+selRing.position.z = 0.02; selRing.visible = false;
+
+/* ============ 固定三区标识（壳体坐标系，不随盘转） ============ */
+function zoneArc(radius, a1, a2, color){
+  const pts=[];
+  const steps=40;
+  for(let k=0;k<=steps;k++){
+    const a=a1+(a2-a1)*k/steps;
+    pts.push(new THREE.Vector3(Math.sin(a)*radius, Math.cos(a)*radius, 0.03));
+  }
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({color, linewidth:2}));
+  line.position.set(0,DISC_Y,DISC_Z);
+  machine.add(line); return line;
+}
+zoneArc(DISC_R*0.90, CLEAN_ENTRY, FILL_ENTRY, 0x4dabf7); // 充种区(235°→305°)
+zoneArc(DISC_R*0.90, DROP_ANGLE, CLEAN_ENTRY, 0xffa94d); // 清种区(140°→235°)
+const dropMark = addMesh(new THREE.SphereGeometry(0.016,12,12),
+  new THREE.MeshBasicMaterial({color:0xff6b6b}));
+dropMark.position.set(Math.sin(A_DROP)*DISC_R*0.90, DISC_Y+Math.cos(A_DROP)*DISC_R*0.90, DISC_Z+0.03);
+
+/* ============ 双圆盘开沟器（随深度下沉） ============ */
+const openerGroup = new THREE.Group(); machine.add(openerGroup);
+for(const s of [-1,1]){
+  const blade = new THREE.Mesh(new THREE.CircleGeometry(0.135,36), mat.opener);
+  blade.rotation.y = Math.PI/2 + s*0.12;
+  blade.position.set(0.28, 0.115, s*0.018);
+  blade.castShadow = true;
+  openerGroup.add(blade);
+}
+const openerShank = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.30,0.05), mat.frame);
+openerShank.position.set(0.26,0.28,0); openerGroup.add(openerShank);
+function updateOpener(){ openerGroup.position.y = -state.depth; }
+
+/* ============ 导种管（随深度重建，出口下沉） ============ */
+let tubeMesh=null;
+function buildTube(){
+  if(tubeMesh){ machine.remove(tubeMesh); tubeMesh.geometry.dispose(); }
+  const top = new THREE.Vector3(Math.sin(A_DROP)*DISC_R*0.8, DISC_Y+Math.cos(A_DROP)*DISC_R*0.8, DISC_Z);
+  const outY = 0.13 + state.depth*0.45;
+  const outlet = new THREE.Vector3(0.20, outY, 0);
+  const curve = new THREE.CatmullRomCurve3([
+    top,
+    new THREE.Vector3(0.15, 0.42, 0.08),
+    new THREE.Vector3(0.18, 0.28, 0.03),
+    outlet,
+  ]);
+  tubeMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.016, 12, false), mat.tube);
+  tubeMesh.castShadow = true;
+  machine.add(tubeMesh);
+  return outlet;
+}
+let tubeOutlet = buildTube();
+
+/* ============ 镇压轮 + 弹簧 ============ */
+const pressGroup = new THREE.Group();
+pressGroup.position.set(-0.18, 0.19, 0);
+machine.add(pressGroup);
+const pwTire = new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.19,0.10,40), mat.wheel);
+pwTire.rotation.x = Math.PI/2; pwTire.castShadow=true; pressGroup.add(pwTire);
+const pwHub = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.12,24), mat.hub);
+pwHub.rotation.x = Math.PI/2; pressGroup.add(pwHub);
+const arm = new THREE.Mesh(new THREE.BoxGeometry(0.30,0.03,0.04), mat.frame);
+arm.position.set(0.12,0.16,0); pressGroup.add(arm);
+
+let springMesh=null;
+function buildSpring(){
+  if(springMesh) machine.remove(springMesh);
+  const compress = (state.pressure-200)/1400*0.05;
+  const pts=[]; const turns=7, N=120;
+  const top=new THREE.Vector3(-0.05,0.72,0), bot=new THREE.Vector3(-0.14,0.30+compress,0);
+  for(let k=0;k<=N;k++){
+    const t=k/N, ang=t*turns*Math.PI*2;
+    pts.push(new THREE.Vector3(
+      top.x+(bot.x-top.x)*t + Math.cos(ang)*0.018,
+      top.y+(bot.y-top.y)*t,
+      Math.sin(ang)*0.018));
+  }
+  springMesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),120,0.006,8,false), mat.spring);
+  machine.add(springMesh);
+}
+buildSpring();
+function updatePressWheel(){
+  const compress = (state.pressure-200)/1400*0.05;
+  pressGroup.position.y = 0.19 - compress;
+}
+
+/* ============ 地轮（驱动轮）+ 链轮 ============ */
+const driveGroup = new THREE.Group();
+driveGroup.position.set(-0.42,0.20,0);
+machine.add(driveGroup);
+const dwTire = new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.20,0.08,36), mat.wheel);
+dwTire.rotation.x=Math.PI/2; dwTire.castShadow=true; driveGroup.add(dwTire);
+const dwHub = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.10,20), mat.hub);
+dwHub.rotation.x=Math.PI/2; driveGroup.add(dwHub);
+for(let k=0;k<6;k++){
+  const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.17,0.015,0.02), mat.hub);
+  spoke.rotation.z = k/6*Math.PI*2; driveGroup.add(spoke);
+}
+const sprocketGeo = new THREE.TorusGeometry(0.05,0.012,8,20);
+const sp1 = new THREE.Mesh(sprocketGeo, mat.dark); sp1.position.set(-0.42,0.46,0.13); machine.add(sp1);
+const sp2 = new THREE.Mesh(sprocketGeo, mat.dark); sp2.position.set(0, DISC_Y, 0.13); machine.add(sp2);
+
+/* ---- 传动链路径（检视模式光点沿此流动） ---- */
+const chainCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-0.42,0.20,0.13),
+  new THREE.Vector3(-0.42,0.46,0.13),
+  new THREE.Vector3(0,DISC_Y,0.13),
+  new THREE.Vector3(Math.sin(A_DROP)*DISC_R*0.8, DISC_Y+Math.cos(A_DROP)*DISC_R*0.8, DISC_Z),
+], true, 'catmullrom', 0.2);
+const chainLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(chainCurve.getPoints(120)),
+  new THREE.LineDashedMaterial({color:0x4dabf7, dashSize:0.02, gapSize:0.012}));
+chainLine.computeLineDistances(); chainLine.visible=false; machine.add(chainLine);
+const pulseSpheres = [];
+for(let i=0;i<4;i++){
+  const p = new THREE.Mesh(new THREE.SphereGeometry(0.012,10,10),
+    new THREE.MeshBasicMaterial({color:0x38d9a9}));
+  p.visible=false; machine.add(p); pulseSpheres.push(p);
+}
+
+/* ============ 地面 / 种沟 / 覆土带 ============ */
+const groundCanvas = document.createElement('canvas');
+groundCanvas.width=groundCanvas.height=128;
+const gctx = groundCanvas.getContext('2d');
+gctx.fillStyle='#5a4632'; gctx.fillRect(0,0,128,128);
+for(let i=0;i<160;i++){
+  gctx.fillStyle = `rgba(${90+pseudo(i)*40},${70+pseudo(i)*30},${45+pseudo(i)*20},.5)`;
+  gctx.fillRect(pseudo(i+3)*128, pseudo(i+5)*128, 3+pseudo(i+9)*5, 2);
+}
+const groundTex = new THREE.CanvasTexture(groundCanvas);
+groundTex.wrapS=groundTex.wrapT=THREE.RepeatWrapping;
+groundTex.repeat.set(10,3);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40,6),
+  new THREE.MeshStandardMaterial({map:groundTex, roughness:1}));
+ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+
+// 种沟（深色条带，随开沟深度变宽变深）
+const trench = new THREE.Mesh(new THREE.PlaneGeometry(40,0.07),
+  new THREE.MeshStandardMaterial({color:0x2e2115, roughness:1}));
+trench.rotation.x=-Math.PI/2; trench.position.set(-8,0.004,0); scene.add(trench);
+// 覆土带（沟壁回土，厚度受镇压轮压力控制）
+const coverStrip = new THREE.Mesh(new THREE.PlaneGeometry(40,0.10),
+  new THREE.MeshStandardMaterial({color:0x7a5c3d, roughness:1, transparent:true, opacity:.85}));
+coverStrip.rotation.x=-Math.PI/2; coverStrip.position.set(-9.4,0.009,0); scene.add(coverStrip);
+
+/* ============ 文字标签 ============ */
+function makeLabel(text, position, color='#dbe6ef', size=0.055){
+  const c=document.createElement('canvas'); c.width=256; c.height=64;
+  const x=c.getContext('2d');
+  x.font='bold 30px "Microsoft YaHei",sans-serif';
+  x.fillStyle='rgba(14,20,27,.75)';
+  const w=x.measureText(text).width+20;
+  x.roundRect((256-w)/2,10,w,44,10); x.fill();
+  x.fillStyle=color; x.textAlign='center'; x.textBaseline='middle';
+  x.fillText(text,128,33);
+  const tex=new THREE.CanvasTexture(c);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false}));
+  sp.scale.set(size*4.2, size*1.05, 1);
+  sp.position.copy(position);
+  machine.add(sp); return sp;
+}
+makeLabel('种箱', new THREE.Vector3(0.24,1.28,0.05));
+makeLabel('排种盘', new THREE.Vector3(-0.26,0.78,0.12), '#c9b37e');
+makeLabel('导种管', new THREE.Vector3(0.30,0.36,0.05), '#e08a6a');
+makeLabel('双圆盘开沟器', new THREE.Vector3(0.46,0.16,0.05), '#b8c0c9');
+makeLabel('镇压轮', new THREE.Vector3(-0.20,0.44,0.12));
+makeLabel('地轮驱动', new THREE.Vector3(-0.62,0.42,0.1));
+makeLabel('充种区', new THREE.Vector3(-0.24,0.50,0.16), '#7cc4ff', 0.045);
+makeLabel('清种区', new THREE.Vector3(-0.20,0.78,0.16), '#ffc078', 0.045);
+makeLabel('投种口', new THREE.Vector3(0.20,0.52,0.16), '#ff9b9b', 0.045);
+
+/* ============ 种子对象池 ============ */
+const seedPool=[];
+function getSeed(){
+  let s = seedPool.find(s=>!s.visible);
+  if(!s){ s=new THREE.Mesh(new THREE.SphereGeometry(0.009,10,10), mat.seed);
+    s.castShadow=true; scene.add(s); seedPool.push(s); }
+  s.visible=true; return s;
+}
+function releaseSeed(s){ s.visible=false; }
+
+/* ============ 物理：排种盘相位 / 充种 / 投种（逐帧对齐） ============ */
+const norm = a => ((a%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+
+function discRPM(){ return 60*state.speed/(CELLS*SPACING); }       // 联动①：保株距
+
+function simStep(){
+  state.frame++;
+  const rpm = discRPM();
+  const omega = rpm/60*Math.PI*2;
+  const dTheta = omega*DT;
+  const prevTheta = state.theta;
+  state.theta += dTheta;
+  const spanFill = FILL_ENTRY-CLEAN_ENTRY;   // 充种区角跨度(70°)
+  const tCrit = spanFill/(RPM_CRIT/60*Math.PI*2); // 临界转速下型孔经过充种区的时长
+
+  for(let i=0;i<CELLS;i++){
+    const cell = state.cells[i];
+    const aPrev = norm(cellMeshes[i].a0 - prevTheta);
+    const aNow  = norm(cellMeshes[i].a0 - state.theta);
+
+    // 进入充种区（角度递减穿过 305°）：停留时间不足 → 来不及充种 → 漏播
+    if(aPrev >= FILL_ENTRY && aNow < FILL_ENTRY){
+      const dwell = spanFill/omega;
+      const dwellEff = dwell*(0.97 + Math.random()*0.06); // 每穴 ±3% 随机扰动
+      // 临界转速处 dwell=tCrit 仍有约90%可靠充种；转速再高约10%，dwell 跌破下限 → 整盘空穴
+      const r = dwellEff/tCrit;
+      const x = THREE.MathUtils.clamp((r-0.86)/0.16, 0, 1);
+      const p = x*x*(3-2*x);                     // 平滑但陡峭的充种概率
+      cell.filled = Math.random() < p;
+      cell.miss = !cell.filled;
+    }
+    // 到达投种口固定相位 140° → 型孔与投种口逐帧对齐投种
+    if(aPrev >= DROP_ANGLE && aNow < DROP_ANGLE && (aPrev-aNow) < DROP_EPS){
+      state.events.push({miss: !cell.filled});
+      if(state.events.length>CELLS) state.events.shift();
+      if(cell.filled){ spawnSeed(); cell.filled=false; }
+      else { flashMiss(); }
+      cell.miss=false;
+    }
+  }
+  updateSeeds(DT);
+}
+
+/* ---- 种子沿导种管 → 沟底 → 镇压轮覆土 ---- */
+function spawnSeed(){
+  const s = getSeed();
+  s.position.copy(tubeOutlet);
+  state.seeds.push({mesh:s, mode:'tube', t:0,
+    from:tubeOutlet.clone(),
+    to:new THREE.Vector3(0.28, 0.012, 0)});   // 落入开沟器尖端后方的沟底
+}
+function updateSeeds(dt){
+  for(let i=state.seeds.length-1;i>=0;i--){
+    const sd = state.seeds[i];
+    if(sd.mode==='tube'){
+      sd.t += dt*3.2;
+      if(sd.t>=1){
+        sd.mode='ground'; sd.t=0;
+        sd.mesh.position.copy(sd.to);       // 落地后相对大地近似静止
+      } else {
+        sd.mesh.position.lerpVectors(sd.from, sd.to, sd.t);
+        sd.mesh.position.y += Math.sin(sd.t*Math.PI)*0.01;
+      }
+    } else {
+      if(sd.mesh.position.x <= -0.18 && !sd.covered){  // 镇压轮随后压过 → 覆土
+        sd.covered = true;
+        sd.mesh.position.y = 0.004;                     // 被回土埋入，贴近地面
+      }
+      if(sd.mesh.position.x < -18){ releaseSeed(sd.mesh); state.seeds.splice(i,1); }
+    }
+  }
+}
+
+/* ============ 漏播告警 ============ */
+const flashEl = document.getElementById('flash');
+function flashMiss(){
+  flashEl.classList.remove('on'); void flashEl.offsetWidth;
+  flashEl.classList.add('on');
+}
+
+/* ============ 每帧视觉同步 ============ */
+function syncVisuals(){
+  // 排种盘转动 & 型孔种子显隐
+  discGroup.rotation.z = -state.theta;
+  for(let i=0;i<CELLS;i++){
+    cellMeshes[i].seed.visible = state.cells[i].filled;
+  }
+  // 地轮 / 镇压轮随前进滚动
+  const travel = state.frame*DT*state.speed;
+  driveGroup.rotation.z = -travel/0.20;
+  pwTire.rotation.z = -travel/0.19;
+  sp1.rotation.z = -travel/0.20*4;
+  sp2.rotation.z = -state.theta;
+
+  // 地面纹理后退模拟前进
+  groundTex.offset.x = -travel*0.5;
+
+  // 覆土带厚度/宽度随压力（联动③）
+  const cover = coverThickness()*1000;
+  coverStrip.material.opacity = 0.45 + cover/45*0.4;
+  coverStrip.scale.z = 0.6 + cover/40;
+  trench.scale.z = 0.7 + state.depth*1000/100*0.6;
+}
+function coverThickness(){
+  // 压力越大回土越密实、覆土越厚；深度大则回土量增加
+  return THREE.MathUtils.clamp(
+    (0.012 + (state.pressure-200)/1400*0.026) * (0.8+state.depth*4), 0.008, 0.045);
+}
+function landingOffset(){
+  // 联动②：深度增加→出口随开沟器下沉→管内滚落路径/时间变化→落种点相对开沟器尖端向前偏移
+  const tTube = 0.28 + state.depth*1.6;          // s，深度越大出口越低、管内停留越久
+  return state.speed*tTube*0.30*1000;            // mm，正值=落种点偏向前方
+}
+
+/* ============ 2D 相位示意图 ============ */
+const dcanvas = document.getElementById('discCanvas');
+const dctx = dcanvas.getContext('2d');
+function drawSchematic(){
+  const W=252, cx=W/2, cy=W/2+2, R=96;
+  dctx.clearRect(0,0,W,W);
+  // 三区弧（归一化角度，按盘转向递减）
+  const arc=(a1,a2,col)=>{
+    dctx.beginPath();
+    for(let k=0;k<=36;k++){
+      const a=a1+(a2-a1)*k/36;
+      const px=cx+Math.sin(a)*(R+12), py=cy-Math.cos(a)*(R+12);
+      k?dctx.lineTo(px,py):dctx.moveTo(px,py);
+    }
+    dctx.strokeStyle=col; dctx.lineWidth=5; dctx.stroke();
+  };
+  arc(CLEAN_ENTRY,FILL_ENTRY,'rgba(77,171,247,.55)');   // 充种区 235°→305°
+  arc(DROP_ANGLE,CLEAN_ENTRY,'rgba(255,169,77,.55)');   // 清种区 140°→235°
+  // 盘体
+  dctx.beginPath(); dctx.arc(cx,cy,R,0,Math.PI*2);
+  dctx.fillStyle='rgba(201,179,126,.18)'; dctx.fill();
+  dctx.strokeStyle='rgba(201,179,126,.8)'; dctx.lineWidth=2; dctx.stroke();
+  // 投种口
+  const dx=cx+Math.sin(A_DROP)*(R+12), dy=cy-Math.cos(A_DROP)*(R+12);
+  dctx.beginPath(); dctx.arc(dx,dy,7,0,Math.PI*2);
+  dctx.fillStyle='#ff6b6b'; dctx.fill();
+  // 型孔（真实相位）
+  for(let i=0;i<CELLS;i++){
+    const a = norm(cellMeshes[i].a0 - state.theta);
+    const px=cx+Math.sin(a)*R*0.72, py=cy-Math.cos(a)*R*0.72;
+    dctx.beginPath(); dctx.arc(px,py,6.5,0,Math.PI*2);
+    if(state.cells[i].filled){ dctx.fillStyle='#69db7c'; dctx.fill(); }
+    else { dctx.fillStyle='rgba(20,15,8,.9)'; dctx.fill();
+           dctx.strokeStyle='rgba(255,107,107,.9)'; dctx.lineWidth=1.5; dctx.stroke(); }
+  }
+  // 转向箭头
+  dctx.fillStyle='rgba(219,230,239,.6)'; dctx.font='11px sans-serif';
+  dctx.textAlign='center';
+  dctx.fillText('↻ 顺时针', cx, cy-R-18);
+}
+
+/* ============ 传动链检视 ============ */
+const chainPanel = document.getElementById('chainPanel');
+const nodeDefs = [
+  {name:'地轮（接触地面取力）', t:0.00},
+  {name:'链轮 / 链条', t:0.30},
+  {name:'排种盘轴', t:0.62},
+  {name:'型孔（携种）', t:0.80},
+  {name:'投种口（排种终点）', t:0.97},
+];
+const nodesEl = document.getElementById('nodes');
+nodesEl.innerHTML = nodeDefs.map((n,i)=>
+  `<div class="node" id="node${i}"><span class="dot"></span><span>${n.name}</span><span class="st">待动力</span></div>`).join('');
+
+function setInspect(on){
+  state.inspect=on;
+  selRing.visible=on; chainLine.visible=on;
+  chainPanel.style.display=on?'block':'none';
+  pulseSpheres.forEach(p=>p.visible=on);
+}
+// 点击选中排种盘
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+renderer.domElement.addEventListener('click', e=>{
+  pointer.x=(e.clientX/innerWidth)*2-1;
+  pointer.y=-(e.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(pointer,camera);
+  const hit = raycaster.intersectObjects(discGroup.children, true);
+  setInspect(hit.length>0);
+});
+
+let chainPhase=0;
+function updateChain(dt){
+  if(!state.inspect) return;
+  chainPhase = (chainPhase + dt*0.35)%1;
+  pulseSpheres.forEach((p,k)=>{
+    const t=(chainPhase+k*0.25)%1;
+    p.position.copy(chainCurve.getPoint(t));
+  });
+  nodeDefs.forEach((n,i)=>{
+    const el=document.getElementById('node'+i);
+    // 光点扫过对应节点 → 点亮
+    const live = ((chainPhase - n.t + 1)%1) < 0.12;
+    el.classList.toggle('live', live);
+    el.querySelector('.st').textContent = live?'动力到达 ✓':'待动力';
+  });
+}
+
+/* ============ UI 绑定 ============ */
+const $ = id=>document.getElementById(id);
+$('clip').addEventListener('input', e=>{ state.clip=e.target.value/100; updateClip(); });
+$('speed').addEventListener('input', e=>{
+  state.speed=e.target.value/3.6; $('speedVal').textContent= (+e.target.value).toFixed(1);
+});
+$('depth').addEventListener('input', e=>{
+  state.depth=e.target.value/1000; $('depthVal').textContent=e.target.value;
+  updateOpener(); tubeOutlet=buildTube();
+});
+$('press').addEventListener('input', e=>{
+  state.pressure=+e.target.value; $('pressVal').textContent=e.target.value;
+  updatePressWheel(); buildSpring();
+});
+$('playBtn').addEventListener('click', ()=>{
+  state.playing=!state.playing;
+  $('playBtn').textContent = state.playing?'⏸ 暂停':'▶ 播放';
+});
+$('stepBtn').addEventListener('click', ()=>{
+  if(state.playing){ state.playing=false; $('playBtn').textContent='▶ 播放'; }
+  simStep();
+});
+$('resetBtn').addEventListener('click', resetSim);
+$('presetBtn').addEventListener('click', ()=>{
+  // 临界预置：7.2 km/h，再快约 12% 即整盘空穴
+  $('speed').value=7.2; state.speed=7.2/3.6; $('speedVal').textContent='7.2';
+  $('depth').value=50; state.depth=.05; $('depthVal').textContent='50';
+  updateOpener(); tubeOutlet=buildTube();
+  $('press').value=800; state.pressure=800; $('pressVal').textContent='800';
+  updatePressWheel(); buildSpring();
+});
+addEventListener('keydown', e=>{
+  if(e.code==='Space'){ e.preventDefault(); $('playBtn').click(); }
+  if(e.code==='ArrowRight'){ $('stepBtn').click(); }
+  if(e.key==='r'||e.key==='R') resetSim();
+});
+
+function resetSim(){
+  state.frame=0; state.theta=0; state.events=[];
+  state.seeds.forEach(sd=>releaseSeed(sd.mesh));
+  state.seeds.length=0;
+  // 初始位于充种区、清种区（投种口 140° 之后 → 305° 之前）的型孔默认持种
+  for(let i=0;i<CELLS;i++){
+    const a=norm(cellMeshes[i].a0);
+    state.cells[i].filled = (a > DROP_ANGLE && a < FILL_ENTRY);
+    state.cells[i].miss=false;
+  }
+}
+resetSim();
+updateOpener(); updatePressWheel();
+
+/* ============ HUD 读数 ============ */
+function updateHUD(){
+  const rpm=discRPM();
+  $('rpmVal').textContent = rpm.toFixed(1)+' rpm';
+  $('rpmVal').className = 'v '+(rpm>RPM_CRIT?'bad':rpm>RPM_CRIT*0.9?'warn':'good');
+  const missRate = state.events.length
+    ? Math.round(state.events.filter(e=>e.miss).length/state.events.length*100):0;
+  $('missVal').textContent = missRate+'%';
+  $('missVal').className = 'v '+(missRate>50?'bad':missRate>0?'warn':'good');
+  $('coverVal').textContent = (coverThickness()*1000).toFixed(1)+' mm';
+  const off=landingOffset();
+  $('offsetVal').textContent = (off>=0?'+':'')+off.toFixed(0)+' mm';
+  $('frameVal').textContent = state.frame;
+  const badge=$('badge');
+  if(rpm>RPM_CRIT*1.1){ badge.textContent='严重漏播 · 型孔空穴'; badge.className='bad'; }
+  else if(rpm>RPM_CRIT){ badge.textContent='漏播临界区 · 连续播种被打断'; badge.className='warn'; }
+  else { badge.textContent='正常播种'; badge.className=''; }
+}
+
+/* ============ 主循环 ============ */
+let acc=0, last=performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  const real=Math.min((now-last)/1000,0.1); last=now;
+  if(state.playing){
+    acc+=real;
+    while(acc>=DT){ simStep(); acc-=DT; }
+  }
+  syncVisuals();
+  updateChain(real);
+  drawSchematic();
+  updateHUD();
+  controls.update();
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(loop);
+
+addEventListener('resize', ()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
