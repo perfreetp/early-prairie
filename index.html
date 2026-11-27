@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>沙雕塔受压连锁塌陷 · PlayCanvas</title>
+<style>
+  :root {
+    --bg: #14110d;
+    --panel: rgba(30, 25, 19, 0.82);
+    --panel-solid: #1e1913;
+    --line: rgba(230, 200, 150, 0.18);
+    --fg: #efe4d2;
+    --muted: #b3a48c;
+    --accent: #e8a33d;
+    --accent2: #6fc3df;
+    --danger: #e05a3e;
+    --ok: #8fc47a;
+    --warn: #e8c547;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 14px;
+  }
+  #app { position: fixed; inset: 0; }
+  #pc-canvas { display: block; outline: none; position: absolute; inset: 0; }
+  canvas { display: block; outline: none; }
+
+  .panel {
+    position: fixed;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+    z-index: 10;
+  }
+
+  /* ---------- 顶部标题 / 总状态 ---------- */
+  #header {
+    top: 14px; left: 14px;
+    padding: 12px 16px;
+    max-width: 340px;
+  }
+  #header h1 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 650;
+    letter-spacing: .5px;
+  }
+  #header .sub { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  #globalStats {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    font-size: 12.5px;
+  }
+  #globalStats .k { color: var(--muted); }
+  #globalStats .v { font-variant-numeric: tabular-nums; text-align: right; }
+  .state-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--ok); margin-right: 6px; vertical-align: middle;
+  }
+  .state-dot.warn { background: var(--warn); }
+  .state-dot.danger { background: var(--danger); }
+
+  /* ---------- 右侧遥测 ---------- */
+  #telemetry {
+    top: 14px; right: 14px;
+    width: 292px;
+    padding: 14px 16px;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+  }
+  #telemetry h2 {
+    margin: 0 0 8px; font-size: 14px; font-weight: 650;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #telemetry .hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .metric { margin: 9px 0; }
+  .metric .row {
+    display: flex; justify-content: space-between;
+    font-size: 12.5px; margin-bottom: 3px;
+  }
+  .metric .row .mk { color: var(--muted); }
+  .metric .row .mv { font-variant-numeric: tabular-nums; }
+  .bar {
+    height: 7px; border-radius: 4px;
+    background: rgba(255,255,255,0.09);
+    overflow: hidden;
+  }
+  .bar > i {
+    display: block; height: 100%; width: 0%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--ok), var(--warn) 65%, var(--danger));
+    transition: width .12s linear;
+  }
+  .state-chip {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  .state-chip.elastic { color: var(--ok); border-color: rgba(143,196,122,.5); }
+  .state-chip.yielding { color: var(--warn); border-color: rgba(232,197,71,.5); }
+  .state-chip.collapsed { color: var(--fff, #fff); background: rgba(224,90,62,.25); border-color: rgba(224,90,62,.6); }
+  .col-list { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .col-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 6px; border-radius: 8px; cursor: pointer;
+    font-size: 12.5px;
+  }
+  .col-row:hover { background: rgba(255,255,255,0.06); }
+  .col-row.sel { background: rgba(232,163,61,0.14); }
+  .col-row .nm { width: 42px; flex: none; }
+  .col-row .mini { flex: 1; }
+  .col-row .mini .bar { height: 5px; }
+  .col-row .st { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  /* ---------- 底部控制台 ---------- */
+  #controls {
+    left: 50%; transform: translateX(-50%);
+    bottom: 14px;
+    padding: 12px 18px 14px;
+    width: min(720px, calc(100vw - 28px));
+  }
+  .load-row { display: flex; align-items: center; gap: 14px; }
+  .load-row label { white-space: nowrap; font-weight: 600; font-size: 13px; }
+  #loadSlider {
+    flex: 1;
+    -webkit-appearance: none; appearance: none;
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--ok), var(--warn) 62%, var(--danger) 88%);
+    outline: none; cursor: pointer;
+  }
+  #loadSlider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff2dc; border: 3px solid var(--accent);
+    box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  }
+  #loadSlider::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #fff2dc; border: 3px solid var(--accent);
+  }
+  .load-val {
+    font-variant-numeric: tabular-nums; min-width: 96px; text-align: right;
+    font-size: 13px; color: var(--accent); font-weight: 650;
+  }
+  .tick-row {
+    position: relative; height: 16px; margin: 2px 108px 0 76px;
+  }
+  .tick {
+    position: absolute; top: 0; transform: translateX(-50%);
+    font-size: 10.5px; color: var(--muted); white-space: nowrap;
+  }
+  .tick.crit { color: var(--danger); font-weight: 700; }
+  .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  button {
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    color: var(--fg);
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  button:hover { background: rgba(255,255,255,0.14); border-color: rgba(232,163,61,.55); }
+  button:active { transform: translateY(1px); }
+  button.primary {
+    background: linear-gradient(180deg, #f0ad4e, #d98c26);
+    border-color: rgba(255,200,120,.6);
+    color: #241804;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.cam { border-color: rgba(111,195,223,.45); }
+  button .kbd {
+    font-size: 10px; opacity: .65; border: 1px solid currentColor;
+    border-radius: 4px; padding: 0 4px; margin-left: 5px;
+  }
+
+  /* ---------- 事件日志 ---------- */
+  #log {
+    left: 14px; bottom: 14px;
+    width: 300px;
+    padding: 10px 14px;
+    font-size: 12px;
+    max-height: 210px;
+    display: flex; flex-direction: column;
+  }
+  #log h3 { margin: 0 0 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  #logBody { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .log-line { line-height: 1.45; color: var(--muted); }
+  .log-line b { color: var(--fg); font-weight: 600; }
+  .log-line.danger b { color: var(--danger); }
+  .log-line.warn b { color: var(--warn); }
+  .log-line .t { color: rgba(179,164,140,.6); margin-right: 6px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- 图例 ---------- */
+  #legend {
+    right: 14px; bottom: 14px;
+    padding: 10px 14px; font-size: 12px;
+    display: flex; gap: 16px;
+  }
+  .lg-item { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(255,255,255,.2); }
+
+  #toast {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(20,17,13,.92); border: 1px solid var(--accent);
+    color: var(--fg); padding: 14px 26px; border-radius: 12px;
+    font-size: 15px; font-weight: 650; z-index: 50;
+    opacity: 0; pointer-events: none; transition: opacity .3s;
+    text-align: center;
+  }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 900px) {
+    #telemetry { width: 250px; }
+    #log, #legend { display: none; }
+  }
+  @media (max-width: 640px) {
+    #telemetry { display: none; }
+    #header { max-width: calc(100vw - 28px); }
+    .tick-row { margin-left: 64px; margin-right: 92px; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div class="panel" id="header">
+  <h1>沙雕塔 · 受压连锁塌陷试验台</h1>
+  <div class="sub">4 根粗颗粒沙柱 + 木质横梁框架 · 拖动滑块对塔顶加压，观察压屈、局部塌陷与横梁传力</div>
+  <div id="globalStats">
+    <span class="k">结构状态</span>
+    <span class="v"><i class="state-dot" id="stateDot"></i><span id="stateText">完好</span></span>
+    <span class="k">当前载荷 F</span><span class="v" id="stLoad">0.0 kN</span>
+    <span class="k">首柱临界 F*</span><span class="v" id="stCrit" style="color:var(--danger)">计算中…</span>
+    <span class="k">已塌陷柱</span><span class="v" id="stCollapsed">0 / 4</span>
+  </div>
+</div>
+
+<div class="panel" id="telemetry">
+  <h2>构件遥测 <span id="selChip" class="state-chip elastic">未选择</span></h2>
+  <div id="telEmpty" class="hint">
+    点击场景中任意一根<b style="color:var(--accent)">沙柱</b>查看它当前的轴力、承压比、压缩量与弯曲挠度；也可在下方列表中点选。再次点击取消选择。
+  </div>
+  <div id="telBody" hidden>
+    <div class="metric">
+      <div class="row"><span class="mk">轴力 N（承担重量）</span><span class="mv" id="mForce">—</span></div>
+      <div class="bar"><i id="bForce"></i></div>
+    </div>
+    <div class="metric">
+      <div class="row"><span class="mk">承压比 N / Nᵤ（极限）</span><span class="mv" id="mUtil">—</span></div>
+      <div class="bar"><i id="bUtil"></i></div>
+    </div>
+    <div class="metric">
+      <div class="row"><span class="mk">轴向压缩量 Δh</span><span class="mv" id="mComp">—</span></div>
+      <div class="bar"><i id="bComp"></i></div>
+    </div>
+    <div class="metric">
+      <div class="row"><span class="mk">弯曲挠度 δ（侧向）</span><span class="mv" id="mBend">—</span></div>
+      <div class="bar"><i id="bBend"></i></div>
+    </div>
+    <div class="metric">
+      <div class="row"><span class="mk">柱顶位移 / 倾斜</span><span class="mv" id="mDisp">—</span></div>
+    </div>
+    <div class="metric">
+      <div class="row"><span class="mk">横梁传入(+) / 传出(−)</span><span class="mv" id="mBeam">—</span></div>
+    </div>
+  </div>
+  <div class="col-list" id="colList"></div>
+</div>
+
+<div class="panel" id="controls">
+  <div class="load-row">
+    <label for="loadSlider">塔顶载荷</label>
+    <input id="loadSlider" type="range" min="0" max="1000" step="1" value="0">
+    <span class="load-val" id="loadVal">0.0 kN</span>
+  </div>
+  <div class="tick-row" id="tickRow"></div>
+  <div class="btn-row">
+    <button class="primary" id="btnCrit">⚡ 一键加载临界预设 F*<span class="kbd">C</span></button>
+    <button id="btnRamp">▶ 缓慢加压至临界<span class="kbd">R</span></button>
+    <button id="btnReset">↺ 复位沙塔<span class="kbd">0</span></button>
+    <button class="cam" id="btnOrbit">🎥 镜头绕塔预演<span class="kbd">O</span></button>
+    <button class="cam" id="btnCamReset">视角归位</button>
+  </div>
+</div>
+
+<div class="panel" id="log">
+  <h3>事件日志</h3>
+  <div id="logBody"></div>
+</div>
+
+<div class="panel" id="legend">
+  <div class="lg-item"><span class="swatch" style="background:#c8a268"></span>粗颗粒沙柱</div>
+  <div class="lg-item"><span class="swatch" style="background:#7a5230"></span>木质横梁（传力）</div>
+  <div class="lg-item"><span class="swatch" style="background:#9aa0a6"></span>承压石板</div>
+</div>
+
+<div id="toast"></div>
+
+<script src="vendor/playcanvas.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
