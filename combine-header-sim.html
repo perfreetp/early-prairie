@@ -1,0 +1,588 @@
+<title>割台仿形联动演示</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{
+  --bg:#ece8de; --panel:#fffdf7; --fg:#2c2a24; --muted:#7d7768;
+  --accent:#b5541f; --line:#d9d2c0; --ok:#3d7a3a; --bad:#c03a2b;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1d1c18; --panel:#27261f; --fg:#e9e5d8; --muted:#9a937f;
+    --accent:#e07b3a; --line:#3c3a30; --ok:#7fb069; --bad:#e06a5a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1d1c18; --panel:#27261f; --fg:#e9e5d8; --muted:#9a937f;
+  --accent:#e07b3a; --line:#3c3a30; --ok:#7fb069; --bad:#e06a5a;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--fg); overflow:hidden;
+  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  user-select:none;-webkit-user-select:none;
+}
+#cv{position:fixed;inset:0;touch-action:none;cursor:grab}
+#cv.dragging{cursor:grabbing}
+.panel{
+  position:fixed;top:14px;left:max(16px,env(safe-area-inset-left,0px));
+  width:288px;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;
+  box-shadow:0 4px 18px rgba(0,0,0,.12);z-index:5;
+}
+.panel h1{font-size:15px;margin:0 0 8px}
+.row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+button{
+  font:inherit;font-size:12px;padding:4px 10px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--line);background:transparent;color:var(--fg);
+}
+button:hover{border-color:var(--accent);color:var(--accent)}
+input[type=range]{flex:1;min-width:80px;accent-color:var(--accent)}
+input[type=range]:disabled{opacity:.35}
+#status{font-size:12px;margin-top:6px;display:grid;gap:2px}
+#status .bad{color:var(--bad);font-weight:600}
+#status .ok{color:var(--ok)}
+.legend{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--muted)}
+.legend .grad{flex:1;height:8px;border-radius:4px;
+  background:linear-gradient(90deg,hsl(120,65%,42%),hsl(60,75%,45%),hsl(0,72%,50%))}
+.hint{font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.6}
+#sel{
+  position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:14px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:10px 14px;font-size:12px;line-height:1.7;z-index:5;display:none;
+  box-shadow:0 4px 18px rgba(0,0,0,.12);font-variant-numeric:tabular-nums;
+}
+#sel b{color:var(--accent)}
+</style>
+
+<canvas id="cv"></canvas>
+
+<div class="panel">
+  <h1>联合收割机割台 · 仿形联动</h1>
+  <div class="row">
+    <button id="bPreset">临界起伏预设</button>
+    <button id="bFlat">平坦田面</button>
+    <button id="bView">重置视角</button>
+  </div>
+  <div class="row">
+    <span style="font-size:12px">起伏幅度</span>
+    <input type="range" id="amp" min="0.5" max="1.5" step="0.005" value="1">
+    <span id="ampv" style="font-size:12px;min-width:64px">1.00×临界</span>
+  </div>
+  <div id="status"></div>
+  <div class="legend"><span>段受力</span><div class="grad"></div><span>小 → 大</span></div>
+  <p class="hint">
+    拖动田面控制点改变地形(垂直方向)<br>
+    上下拖动拨禾轮 → 改变贴地段滑靴压力与压痕<br>
+    点击某一段 → 显示该段铰点连线与夹角<br>
+    滚轮缩放 · 拖动空白处平移
+  </p>
+</div>
+<div id="sel"></div>
+
+<script>
+"use strict";
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1,CW=0,CH=0;
+function resize(){
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  CW=window.innerWidth;CH=window.innerHeight;
+  cv.width=CW*DPR;cv.height=CH*DPR;
+  cv.style.width=CW+'px';cv.style.height=CH+'px';
+}
+addEventListener('resize',resize);resize();
+
+/* ---------- 视图(缩放/平移) ---------- */
+const V0={cx:390,cy:60,scale:0.9};
+let view={...V0};
+function fitView(){
+  view.scale=Math.max(0.35,Math.min(CW/950,CH/640,1.6));
+  view.cx=390;view.cy=60;
+}
+fitView();
+function w2s(x,y){return [(x-view.cx)*view.scale+CW/2, CH/2-(y-view.cy)*view.scale];}
+function s2w(px,py){return [(px-CW/2)/view.scale+view.cx, (CH/2-py)/view.scale+view.cy];}
+
+/* ---------- 机构参数 ---------- */
+const N=6;                 // 仿形单元段数
+const L=110;               // 每段长度(总长 N*L 恒定)
+const SF=0.55;             // 滑靴在段上的位置(比例)
+const DROP=26;             // 滑靴相对梁中心的下置距离
+const PHI=22*Math.PI/180;  // 铰点相对转角限位
+const TMIN=-0.95,TMAX=0.95;// 绝对倾角限位
+const P0={x:40,y:150};     // 割台根部铰点(挂接在喂入室)
+const KS=0.35;             // 土壤等效刚度(简化本构)
+const WSEG=1.0;            // 每段重量
+const KT=0.10;             // 拉扯张力系数
+const KLINK=0.15;          // 拨禾轮手动干预→压力系数
+const KREEL=2.0;           // 倾角→拨禾轮自动抬升 px/度
+const H0=96;               // 拨禾轮基础高度
+const REELX=P0.x+3.0*L;    // 拨禾轮水平位置
+
+/* ---------- 田面 ---------- */
+const CPX=[-260,-130,0,130,260,390,520,650,780,910,1040,1170,1300];
+let baseY=CPX.map(()=>0);
+let mode='preset';         // 'preset'(幅度滑块有效) | 'custom'(手拖过控制点)
+let Acrit=120;             // 临界起伏深度(启动时自动搜索)
+
+function genDip(A){
+  baseY=CPX.map(x=>-A*Math.exp(-((x-690)/95)**2));
+}
+function groundY(x){
+  const xs=CPX,ys=baseY,n=xs.length;
+  if(x<=xs[0])return ys[0];
+  if(x>=xs[n-1])return ys[n-1];
+  let i=0;while(i<n-2&&x>xs[i+1])i++;
+  const i0=Math.max(0,i-1),i3=Math.min(n-1,i+2);
+  const x1=xs[i],x2=xs[i+1],t=(x-x1)/(x2-x1),t2=t*t,t3=t2*t;
+  const m1=(ys[i+1]-ys[i0])/(xs[i+1]-xs[i0])*(x2-x1);
+  const m2=(ys[i3]-ys[i])/(xs[i3]-xs[i])*(x2-x1);
+  return (2*t3-3*t2+1)*ys[i]+(t3-2*t2+t)*m1+(-2*t3+3*t2)*ys[i+1]+(t3-t2)*m2;
+}
+
+/* ---------- 逐段铰接求解(角度逐段传递) ---------- */
+let S=null;
+function solveChain(pen){
+  const th=[],pts=[{x:P0.x,y:P0.y}],gap=[],over=[];
+  for(let i=0;i<N;i++){
+    const prev=i?th[i-1]:0;
+    const lo=Math.max(prev-PHI,TMIN),hi=Math.min(prev+PHI,TMAX);
+    const p=pts[i];
+    const f=t=>{
+      const sx=p.x+L*SF*Math.cos(t);
+      return p.y+L*SF*Math.sin(t)-DROP-(groundY(sx)-pen[i]);
+    };
+    const flo=f(lo),fhi=f(hi);
+    let t,g=0,o=0;
+    if(flo<=0&&fhi>=0){
+      let a=lo,b=hi;
+      for(let k=0;k<40;k++){const m=(a+b)/2;if(f(m)>0)b=m;else a=m;}
+      t=(a+b)/2;
+    }else if(flo>0){ t=lo; g=flo; }        // 够不到地面 → 脱空
+    else{ t=hi; o=-fhi; }                  // 地面顶过限位 → 过载受压
+    th.push(t);gap.push(g);over.push(o);
+    pts.push({x:p.x+L*Math.cos(t),y:p.y+L*Math.sin(t)});
+  }
+  return{th,pts,gap,over};
+}
+function compute(){
+  let pen=new Array(N).fill(0),sol=null,ref=N-1;
+  for(let it=0;it<3;it++){
+    sol=solveChain(pen);
+    const grounded=sol.gap.map(g=>g<=0.02);
+    ref=-1;
+    for(let i=0;i<N;i++)
+      if(grounded[i]&&sol.pts[i].x-1<=REELX&&REELX<=sol.pts[i+1].x+1){ref=i;break;}
+    if(ref<0){
+      let bd=1e9;
+      for(let i=0;i<N;i++)if(grounded[i]){
+        const d=Math.abs((sol.pts[i].x+sol.pts[i+1].x)/2-REELX);
+        if(d<bd){bd=d;ref=i;}
+      }
+    }
+    if(ref<0)ref=N-1;
+    const nG=Math.max(1,grounded.filter(Boolean).length);
+    const Fr=-KLINK*reelOffset;            // 拨禾轮下压→附加压力
+    const dl=(N*WSEG)/(KS*nG);             // 整体沉降
+    for(let i=0;i<N;i++)pen[i]=grounded[i]?dl:0;
+    pen[ref]=Math.min(30,Math.max(0,(grounded[ref]?dl:0)+Fr/KS));
+  }
+  sol=solveChain(pen);
+  const{th,pts,gap,over}=sol;
+  const suf=new Array(N);let acc=0;
+  for(let i=N-1;i>=0;i--){acc+=gap[i];suf[i]=acc;}
+  const tens=[],comp=[],F=[];
+  for(let i=0;i<N;i++){
+    tens[i]=KT*suf[i];                     // 下游脱空把上游逐段拉扯
+    comp[i]=KS*(pen[i]+over[i]);
+    F[i]=tens[i]+comp[i];
+  }
+  const deg=th[ref]*180/Math.PI;
+  const barY=(pts[ref].y+pts[ref+1].y)/2;
+  const reelAutoY=barY+H0+KREEL*deg;       // 倾角大→拨禾轮自动抬升
+  const reelY=reelAutoY+reelOffset;
+  const skid=pts.slice(0,N).map((p,i)=>({
+    x:p.x+L*SF*Math.cos(th[i]),
+    y:p.y+L*SF*Math.sin(th[i])-DROP
+  }));
+  S={th,pts,gap,over,pen,tens,comp,F,ref,reelAutoY,reelY,skid,
+     grounded:gap.map(g=>g<=0.02)};
+}
+
+/* ---------- 临界起伏搜索:让最外侧段刚好贴在脱空边缘 ---------- */
+function lastGap(){compute();return S.gap[N-1];}
+function findCritical(){
+  genDip(0);lastGap();
+  let lo=0,hi=420;
+  genDip(hi);
+  if(lastGap()<0.5)return 0;
+  for(let k=0;k<34;k++){
+    const m=(lo+hi)/2;genDip(m);
+    if(lastGap()>0.5)hi=m;else lo=m;
+  }
+  return hi;
+}
+
+/* ---------- 交互状态 ---------- */
+let reelOffset=0,sel=-1,rot=0;
+let drag=null;
+const ampEl=document.getElementById('amp');
+const ampv=document.getElementById('ampv');
+const statusEl=document.getElementById('status');
+const selEl=document.getElementById('sel');
+
+document.getElementById('bPreset').onclick=()=>{
+  mode='preset';ampEl.disabled=false;ampEl.value=1;
+  ampv.textContent='1.00×临界';
+  genDip(Acrit);reelOffset=0;
+};
+document.getElementById('bFlat').onclick=()=>{
+  mode='custom';ampEl.disabled=true;ampv.textContent='自定义';
+  baseY=CPX.map(()=>0);reelOffset=0;
+};
+document.getElementById('bView').onclick=()=>{fitView();};
+ampEl.oninput=()=>{
+  if(mode!=='preset')return;
+  const a=+ampEl.value;
+  ampv.textContent=a.toFixed(2)+'×临界';
+  genDip(Acrit*a);
+};
+
+function forceColor(f){
+  const t=Math.max(0,Math.min(1,f/9));
+  return `hsl(${120*(1-t)},72%,44%)`;
+}
+function dentDepth(x){
+  let d=0;
+  for(let i=0;i<N;i++){
+    if(S.pen[i]>0.15){
+      const dx=(x-S.skid[i].x)/26;
+      if(Math.abs(dx)<1)d+=S.pen[i]*0.5*(1+Math.cos(Math.PI*dx));
+    }
+  }
+  return d;
+}
+const surfY=x=>groundY(x)-dentDepth(x);
+
+/* ---------- 绘制 ---------- */
+function drawGrid(){
+  ctx.strokeStyle='#e6e0cf';ctx.lineWidth=1;
+  const[wx0,wy1]=s2w(0,0),[wx1,wy0]=s2w(CW,CH);
+  const st=100;
+  ctx.beginPath();
+  for(let x=Math.floor(wx0/st)*st;x<=wx1;x+=st){
+    const[sx]=w2s(x,0);ctx.moveTo(sx,0);ctx.lineTo(sx,CH);
+  }
+  for(let y=Math.floor(wy0/st)*st;y<=wy1;y+=st){
+    const[,sy]=w2s(0,y);ctx.moveTo(0,sy);ctx.lineTo(CW,sy);
+  }
+  ctx.stroke();
+}
+function drawTerrain(){
+  ctx.beginPath();
+  ctx.moveTo(-4,CH+4);
+  for(let sx=0;sx<=CW;sx+=3){
+    const[wx]=s2w(sx,0);
+    const[,sy]=w2s(0,surfY(wx));
+    ctx.lineTo(sx,sy);
+  }
+  ctx.lineTo(CW+4,CH+4);ctx.closePath();
+  ctx.fillStyle='#d8c7a3';ctx.fill();
+  // 压痕暗色
+  for(let i=0;i<N;i++){
+    if(S.pen[i]>0.5){
+      const[cx0,cy0]=w2s(S.skid[i].x,surfY(S.skid[i].x));
+      ctx.beginPath();
+      ctx.ellipse(cx0,cy0+2,24*view.scale,Math.max(2,S.pen[i]*0.45*view.scale),0,0,Math.PI);
+      ctx.fillStyle='rgba(107,84,58,0.4)';ctx.fill();
+    }
+  }
+  // 地表线
+  ctx.beginPath();
+  for(let sx=0;sx<=CW;sx+=3){
+    const[wx]=s2w(sx,0);const[,sy]=w2s(0,surfY(wx));
+    sx===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);
+  }
+  ctx.strokeStyle='#8a6f4d';ctx.lineWidth=2;ctx.stroke();
+  // 控制点
+  for(let i=0;i<CPX.length;i++){
+    const[sx,sy]=w2s(CPX[i],baseY[i]);
+    if(sx<-20||sx>CW+20)continue;
+    ctx.beginPath();ctx.arc(sx,sy,5.5,0,7);
+    ctx.fillStyle='#fffdf7';ctx.fill();
+    ctx.strokeStyle='#8a6f4d';ctx.lineWidth=1.5;ctx.stroke();
+  }
+}
+function drawMachine(){
+  // 轮胎
+  let[wx,wy]=w2s(-80,72);const r=64*view.scale;
+  ctx.beginPath();ctx.arc(wx,wy,r,0,7);ctx.fillStyle='#2e2a26';ctx.fill();
+  ctx.beginPath();ctx.arc(wx,wy,r*0.42,0,7);ctx.fillStyle='#8b8f96';ctx.fill();
+  // 车身
+  const[bx,by]=w2s(-178,212),[bx2,by2]=w2s(-14,112);
+  ctx.fillStyle='#a94438';
+  roundRect(bx,by,bx2-bx,by2-by,10);ctx.fill();
+  const[cx1,cy1]=w2s(-162,200),[cx2,cy2]=w2s(-96,150);
+  ctx.fillStyle='#bcd3dd';
+  roundRect(cx1,cy1,cx2-cx1,cy2-cy1,6);ctx.fill();
+  // 喂入室
+  const[a1,a2]=w2s(-30,168),[b1,b2]=w2s(P0.x,P0.y+17);
+  const[c1,c2]=w2s(P0.x,P0.y-17),[d1,d2]=w2s(-30,116);
+  ctx.beginPath();ctx.moveTo(a1,a2);ctx.lineTo(b1,b2);
+  ctx.lineTo(c1,c2);ctx.lineTo(d1,d2);ctx.closePath();
+  ctx.fillStyle='#7d8a96';ctx.fill();
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+function drawReel(){
+  // 支臂(双联)
+  const[ax,ay]=w2s(P0.x-20,P0.y+80);
+  const[rx,ry]=w2s(REELX,S.reelY);
+  ctx.strokeStyle='#8a939c';ctx.lineCap='round';
+  ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(rx,ry);ctx.stroke();
+  ctx.lineWidth=3;ctx.beginPath();
+  ctx.moveTo(ax+8,ay+10);ctx.lineTo(rx+8,ry+10);ctx.stroke();
+  // 拨禾轮
+  const R=46*view.scale;
+  ctx.strokeStyle='#b5541f';ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(rx,ry,R,0,7);ctx.stroke();
+  for(let k=0;k<5;k++){
+    const a=rot+k*2*Math.PI/5;
+    const ca=Math.cos(a),sa=Math.sin(a);
+    ctx.beginPath();ctx.moveTo(rx,ry);
+    ctx.lineTo(rx+ca*R,ry+sa*R);ctx.stroke();
+    // 弹齿横杆
+    const tx=rx+ca*R,ty=ry+sa*R,px=-sa,py=ca;
+    ctx.beginPath();ctx.moveTo(tx-px*8,ty-py*8);ctx.lineTo(tx+px*8,ty+py*8);
+    ctx.strokeStyle='#5c6670';ctx.lineWidth=2.5;ctx.stroke();
+    ctx.strokeStyle='#b5541f';ctx.lineWidth=3;
+  }
+  ctx.beginPath();ctx.arc(rx,ry,7,0,7);
+  ctx.fillStyle='#b5541f';ctx.fill();
+  // 拖动手柄提示
+  ctx.beginPath();ctx.arc(rx,ry-R-13,7,0,7);
+  ctx.fillStyle='rgba(181,84,31,0.25)';ctx.fill();
+  ctx.strokeStyle='#b5541f';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.fillStyle='#b5541f';ctx.font='10px sans-serif';
+  ctx.textAlign='center';ctx.fillText('⇕',rx,ry-R-9.5);
+}
+function drawHeader(){
+  const{pts,th}=S;
+  for(let i=0;i<N;i++){
+    const a=pts[i],b=pts[i+1];
+    const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
+    const ux=dx/len,uy=dy/len,nx=-uy,ny=ux;
+    const[ax,ay]=w2s(a.x,a.y),[bx,by]=w2s(b.x,b.y);
+    const sc=view.scale;
+    // 分禾器(段前端下方)
+    const tip={x:b.x+ux*42+nx*-20,y:b.y+uy*42+ny*-20};
+    const s1={x:b.x+nx*-8,y:b.y+ny*-8};
+    const s2={x:b.x+ux*16+nx*-8,y:b.y+uy*16+ny*-8};
+    const[t1,t2]=w2s(tip.x,tip.y),[p1x,p1y]=w2s(s1.x,s1.y),[p2x,p2y]=w2s(s2.x,s2.y);
+    ctx.beginPath();ctx.moveTo(p1x,p1y);ctx.lineTo(p2x,p2y);ctx.lineTo(t1,t2);
+    ctx.closePath();ctx.fillStyle='#3f464d';ctx.fill();
+    // 滑靴
+    const sk=S.skid[i];
+    const gy=surfY(sk.x);
+    const sl=Math.atan2(groundY(sk.x+3)-groundY(sk.x-3),6);
+    const[shx,shy]=w2s(sk.x,gy);
+    ctx.save();ctx.translate(shx,shy);ctx.rotate(-sl);
+    ctx.fillStyle='#5c6670';
+    roundRect(-17*sc,-2,34*sc,6*sc,3*sc);ctx.fill();
+    ctx.restore();
+    // 滑靴支杆
+    ctx.strokeStyle='#5c6670';ctx.lineWidth=3;
+    for(const f of[SF-0.13,SF+0.13]){
+      const bp={x:a.x+dx*f-nx*8,y:a.y+dy*f-ny*8};
+      const[q1,q2]=w2s(bp.x,bp.y);
+      const[e1,e2]=w2s(sk.x+(f<SF?-9:9),gy+3);
+      ctx.beginPath();ctx.moveTo(q1,q2);ctx.lineTo(e1,e2);ctx.stroke();
+    }
+    // 脱空间隙虚线
+    if(S.gap[i]>0.5){
+      const[g1,g2]=w2s(sk.x,sk.y),[h1,h2]=w2s(sk.x,groundY(sk.x));
+      ctx.beginPath();ctx.setLineDash([4,4]);
+      ctx.moveTo(g1,g2);ctx.lineTo(h1,h2);
+      ctx.strokeStyle='#c03a2b';ctx.lineWidth=1.5;ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle='#c03a2b';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+      ctx.fillText('脱空',(g1+h1)/2+2,(g2+h2)/2-8);
+    }
+    // 梁体
+    ctx.lineCap='round';
+    ctx.strokeStyle='#7d8790';ctx.lineWidth=19*sc;
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+    ctx.strokeStyle='#aab3bd';ctx.lineWidth=16*sc;
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+    // 受力色带(梁上缘)
+    const[o1,o2]=w2s(a.x+nx*5.5,a.y+ny*5.5);
+    const[o3,o4]=w2s(b.x+nx*5.5,b.y+ny*5.5);
+    ctx.strokeStyle=forceColor(S.F[i]);ctx.lineWidth=5*sc;
+    ctx.beginPath();ctx.moveTo(o1,o2);ctx.lineTo(o3,o4);ctx.stroke();
+    // 铰点
+    for(const p of[a,b]){
+      const[j1,j2]=w2s(p.x,p.y);
+      ctx.beginPath();ctx.arc(j1,j2,5.5,0,7);
+      ctx.fillStyle='#fffdf7';ctx.fill();
+      ctx.strokeStyle='#444';ctx.lineWidth=1.5;ctx.stroke();
+    }
+  }
+  // 根部大铰
+  const[r1,r2]=w2s(P0.x,P0.y);
+  ctx.beginPath();ctx.arc(r1,r2,8,0,7);
+  ctx.fillStyle='#fffdf7';ctx.fill();
+  ctx.strokeStyle='#333';ctx.lineWidth=2;ctx.stroke();
+}
+function drawSel(){
+  const i=sel,{pts,th}=S;
+  const a=pts[i],b=pts[i+1];
+  const[ax,ay]=w2s(a.x,a.y),[bx,by]=w2s(b.x,b.y);
+  ctx.setLineDash([7,5]);ctx.strokeStyle='#2266cc';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+  ctx.setLineDash([]);
+  for(const p of[a,b]){
+    const[j1,j2]=w2s(p.x,p.y);
+    ctx.beginPath();ctx.arc(j1,j2,9,0,7);
+    ctx.strokeStyle='#2266cc';ctx.lineWidth=2;ctx.stroke();
+  }
+  // 两端铰点相对角
+  drawAngleArc(a, i?th[i-1]:0, th[i]);
+  if(i+1<N)drawAngleArc(b, th[i], th[i+1]);
+}
+function drawAngleArc(p,a0,a1){
+  const[px,py]=w2s(p.x,p.y);
+  const r=34*view.scale+10;
+  ctx.strokeStyle='#2266cc';ctx.lineWidth=1.5;
+  // 两条参考射线
+  for(const ang of[a0,a1]){
+    const[q1,q2]=w2s(p.x+Math.cos(ang)*(r/view.scale),p.y+Math.sin(ang)*(r/view.scale));
+    ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(q1,q2);ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(px,py,r,-a0,-a1,a1>a0);
+  ctx.stroke();
+  const mid=(a0+a1)/2;
+  const[tx,ty]=w2s(p.x+Math.cos(mid)*(r/view.scale+16),p.y+Math.sin(mid)*(r/view.scale+16));
+  ctx.fillStyle='#2266cc';ctx.font='12px sans-serif';ctx.textAlign='center';
+  ctx.fillText(((a1-a0)*180/Math.PI).toFixed(1)+'°',tx,ty);
+}
+
+/* ---------- HUD ---------- */
+function updateHud(){
+  const last=S.gap[N-1];
+  const span=(S.pts[N].x-P0.x).toFixed(0);
+  const refDeg=(S.th[S.ref]*180/Math.PI).toFixed(1);
+  let h='';
+  h+=last>0.5
+    ?`<div class="bad">⚠ 最外侧仿形单元脱空(间隙 ${last.toFixed(0)})</div>`
+    :`<div class="ok">✓ 最外侧仿形单元贴地</div>`;
+  h+=`<div>总展开长 ${(N*L).toFixed(0)}(恒定) · 当前水平跨度 ${span}</div>`;
+  h+=`<div>贴地段:第 ${S.ref+1} 段 · 倾角 ${refDeg}° → 拨禾轮随动</div>`;
+  if(Math.abs(reelOffset)>0.5){
+    const Fr=-KLINK*reelOffset;
+    h+=`<div>拨禾轮手动${reelOffset>0?'抬升':'下压'} ${Math.abs(reelOffset).toFixed(0)} → 贴地段滑靴${Fr>0?'增压':'减压'} ${Math.abs(Fr).toFixed(1)}</div>`;
+  }
+  statusEl.innerHTML=h;
+  if(sel>=0){
+    const i=sel;
+    const d0=(S.th[i]-(i?S.th[i-1]:0))*180/Math.PI;
+    const d1=i+1<N?(S.th[i+1]-S.th[i])*180/Math.PI:null;
+    selEl.style.display='block';
+    selEl.innerHTML=
+      `<b>第 ${i+1} 段</b> · 绝对倾角 ${(S.th[i]*180/Math.PI).toFixed(1)}°<br>`+
+      `铰点相对角: 根端 ${d0.toFixed(1)}°`+(d1!==null?` · 前端 ${d1.toFixed(1)}°`:'')+`<br>`+
+      `受力 ${S.F[i].toFixed(1)}(拉 ${S.tens[i].toFixed(1)} / 压 ${S.comp[i].toFixed(1)})`+
+      ` · 滑靴压力 ${(KS*S.pen[i]).toFixed(1)} · 压痕 ${S.pen[i].toFixed(1)}<br>`+
+      `状态: ${S.gap[i]>0.5?'<b style="color:var(--bad)">脱空</b>':(S.over[i]>0.5?'限位过载':'正常贴地')}`;
+  }else selEl.style.display='none';
+}
+
+/* ---------- 主循环 ---------- */
+let lastT=0;
+function frame(t){
+  const dt=Math.min(0.05,(t-lastT)/1000||0.016);lastT=t;
+  rot+=dt*0.9;
+  compute();
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle='#f6f2e8';ctx.fillRect(0,0,CW,CH);
+  drawGrid();
+  drawTerrain();
+  drawMachine();
+  drawReel();
+  drawHeader();
+  if(sel>=0)drawSel();
+  updateHud();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- 指针交互 ---------- */
+function segDist(px,py,i){
+  const[ax,ay]=w2s(S.pts[i].x,S.pts[i].y);
+  const[bx,by]=w2s(S.pts[i+1].x,S.pts[i+1].y);
+  const dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;
+  let t=((px-ax)*dx+(py-ay)*dy)/L2;t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(ax+dx*t),py-(ay+dy*t));
+}
+cv.addEventListener('pointerdown',e=>{
+  const px=e.clientX,py=e.clientY;
+  cv.setPointerCapture(e.pointerId);
+  // 控制点
+  for(let i=0;i<CPX.length;i++){
+    const[sx,sy]=w2s(CPX[i],baseY[i]);
+    if(Math.hypot(px-sx,py-sy)<12){drag={t:'cp',i};cv.classList.add('dragging');return;}
+  }
+  // 拨禾轮
+  const[rx,ry]=w2s(REELX,S.reelY);
+  if(Math.hypot(px-rx,py-ry)<30||Math.hypot(px-rx,py-(ry-46*view.scale-13))<16){
+    drag={t:'reel'};cv.classList.add('dragging');return;
+  }
+  // 段选择(点击,不拖动)
+  for(let i=0;i<N;i++){
+    if(segDist(px,py,i)<12){drag={t:'maybe',i,x:px,y:py};return;}
+  }
+  drag={t:'pan',x:px,y:py};cv.classList.add('dragging');
+});
+cv.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const px=e.clientX,py=e.clientY;
+  if(drag.t==='cp'){
+    const[,wy]=s2w(px,py);
+    baseY[drag.i]=Math.max(-170,Math.min(170,wy));
+    if(mode==='preset'){mode='custom';ampEl.disabled=true;ampv.textContent='自定义';}
+  }else if(drag.t==='reel'){
+    const[,wy]=s2w(px,py);
+    reelOffset=Math.max(-70,Math.min(90,wy-S.reelAutoY));
+  }else if(drag.t==='pan'){
+    view.cx-=(px-drag.x)/view.scale;
+    view.cy+=(py-drag.y)/view.scale;
+    drag.x=px;drag.y=py;
+  }else if(drag.t==='maybe'){
+    if(Math.hypot(px-drag.x,py-drag.y)>5)drag={t:'pan',x:px,y:py};
+  }
+});
+cv.addEventListener('pointerup',e=>{
+  if(drag&&drag.t==='maybe'){
+    sel=(sel===drag.i)?-1:drag.i;
+  }
+  drag=null;cv.classList.remove('dragging');
+});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const[wx,wy]=s2w(e.clientX,e.clientY);
+  view.scale=Math.max(0.3,Math.min(3,view.scale*Math.exp(-e.deltaY*0.0012)));
+  view.cx=wx-(e.clientX-CW/2)/view.scale;
+  view.cy=wy+(e.clientY-CH/2)/view.scale;
+},{passive:false});
+
+/* ---------- 启动:预设临界起伏 ---------- */
+const A0=findCritical();
+if(A0>0)Acrit=A0;
+genDip(Acrit);
+requestAnimationFrame(frame);
+</script>
