@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>上肢骨度分寸 · 可摆姿势腧穴定位</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --panel:#fffdf8; --fg:#23272e; --muted:#6b7280; --line:#d8d2c4;
+    --skin:#f3d6bd; --skin-stroke:#b98a63; --bone:#9aa3ad; --ruler:#3f6f8f;
+    --lu:#b5394b; --li:#1f7a5a; --anchor:#8a6fb3; --styloid:#d2502e; --joint:#2f6fb0;
+    --accent:#2f6fb0; --warn:#c2410c; --ok:#15803d; --chip:#eef2f6;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#171a1f; --panel:#1f242b; --fg:#e6e3dc; --muted:#9aa3ad; --line:#343b45;
+      --skin:#4a382c; --skin-stroke:#c79a72; --bone:#7c8590; --ruler:#7fb2d0;
+      --lu:#e07a8a; --li:#5cc39a; --anchor:#b79fd6; --styloid:#ef7d5c; --joint:#6aa6e0;
+      --accent:#6aa6e0; --warn:#f09163; --ok:#7ddb9c; --chip:#2a313a; color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#171a1f; --panel:#1f242b; --fg:#e6e3dc; --muted:#9aa3ad; --line:#343b45;
+    --skin:#4a382c; --skin-stroke:#c79a72; --bone:#7c8590; --ruler:#7fb2d0;
+    --lu:#e07a8a; --li:#5cc39a; --anchor:#b79fd6; --styloid:#ef7d5c; --joint:#6aa6e0;
+    --accent:#6aa6e0; --warn:#f09163; --ok:#7ddb9c; --chip:#2a313a; color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--fg);
+    font:14px/1.55 "Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    display:flex; min-height:100vh;
+  }
+  /* ---------- 侧栏 ---------- */
+  aside{
+    width:384px; flex:0 0 384px; overflow-y:auto;
+    background:var(--panel); border-right:1px solid var(--line);
+    padding:18px 18px calc(20px + env(safe-area-inset-bottom));
+  }
+  h1{font-size:18px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:14px}
+  .card{border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:12px;background:transparent}
+  .card h2{font-size:13px;margin:0 0 9px;letter-spacing:.5px;color:var(--fg);display:flex;align-items:center;gap:7px}
+  .card h2::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--accent)}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  button{
+    appearance:none;border:1px solid var(--line);background:var(--chip);color:var(--fg);
+    border-radius:9px;padding:7px 11px;font-size:13px;cursor:pointer;transition:.15s;font-family:inherit;
+  }
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{filter:brightness(1.08);color:#fff}
+  button.toggled{background:var(--accent);border-color:var(--accent);color:#fff}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{border:0;border-radius:0;flex:1;background:transparent}
+  .seg button.toggled{background:var(--accent);color:#fff}
+  label.slider{display:block;font-size:12px;color:var(--muted)}
+  label.slider .val{float:right;color:var(--fg);font-variant-numeric:tabular-nums;font-weight:600}
+  input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0 4px}
+  .nudge{display:flex;gap:6px;align-items:center}
+  .nudge button{padding:5px 10px}
+  .crit{margin-top:10px;border-radius:10px;padding:9px 11px;font-size:12.5px;border:1px solid var(--line);background:var(--chip)}
+  .crit .big{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:2.5px 0}
+  .kv b{font-variant-numeric:tabular-nums;font-weight:600}
+  .kv span{color:var(--muted)}
+  .info{min-height:118px}
+  .info .name{font-size:15px;font-weight:700;margin-bottom:2px}
+  .info .meta{color:var(--muted);font-size:12px;margin-bottom:7px}
+  .info .cun{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+  .pill{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;font-variant-numeric:tabular-nums}
+  .info .note{font-size:12px;color:var(--muted)}
+  .placeholder{color:var(--muted);font-size:12.5px}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;font-size:12px;color:var(--muted)}
+  .legend i{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+  .hint{font-size:11.5px;color:var(--muted);line-height:1.5}
+  /* ---------- 画布 ---------- */
+  main{flex:1;min-width:0;position:relative}
+  #stage{position:absolute;inset:0}
+  #stage svg,#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+  .float-tag{position:absolute;top:12px;left:14px;font-size:12px;color:var(--muted);background:var(--panel);
+    border:1px solid var(--line);border-radius:999px;padding:5px 12px;pointer-events:none}
+  @media (max-width:820px){
+    body{flex-direction:column}
+    aside{width:100%;flex:none;max-height:46vh;border-right:0;border-bottom:1px solid var(--line)}
+    main{flex:1;min-height:340px}
+  }
+</style>
+</head>
+<body>
+<aside>
+  <h1>上肢骨度分寸 · 腧穴定位仪</h1>
+  <div class="sub">拖动肩 / 肘 / 腕关节摆姿势 · 体表随关节角度形变,腧穴沿体表滑移,标尺同步重算</div>
+
+  <div class="card">
+    <h2>对照姿势(一键预置)</h2>
+    <div class="row">
+      <button id="pose-flex">屈肘 90°</button>
+      <button id="pose-straight">伸直 0°</button>
+      <button id="pose-crit" class="primary">临界旋前 72°</button>
+      <button id="pose-neutral">中立复位</button>
+    </div>
+    <div class="hint" style="margin-top:8px">肩、肘、腕三个圆点可直接在画布上拖动;骨长按解剖比例约束,不会拉长或缩短。</div>
+  </div>
+
+  <div class="card">
+    <h2>前臂旋前 / 旋后</h2>
+    <label class="slider"><span>旋后 −90° ↔ 旋前 +90°</span><span class="val" id="pron-val">0°</span></label>
+    <input id="pron" type="range" min="-90" max="90" step="0.1" value="0">
+    <div class="nudge">
+      <button id="pron-m1">−0.5°</button>
+      <button id="pron-p1">+0.5°</button>
+      <button id="pron-snap">吸附临界 θ*</button>
+      <span style="flex:1"></span>
+      <button id="pron-zero">归零</button>
+    </div>
+    <div class="crit" id="crit-box">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span>列缺(LU7)对桡骨茎突线</span>
+        <span class="big" id="crit-dev">—</span>
+      </div>
+      <div id="crit-state" style="margin-top:4px"></div>
+      <div class="hint" style="margin-top:5px">θ* = 72.000° 时偏差为 0,腧穴恰好压在标志线上;再旋 +1° 即偏出。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>骨度分寸基准(切换标尺)</h2>
+    <div class="seg">
+      <button id="mode-12" class="toggled">肘横纹→腕横纹<br>12 寸(前臂)</button>
+      <button id="mode-9">腋前纹头→肘横纹<br>9 寸(上臂)</button>
+    </div>
+    <div style="margin-top:9px">
+      <div class="kv"><span>活动段 1 寸像素</span><b id="px-cun">—</b></div>
+      <div class="kv"><span>活动段骨长</span><b id="seg-len">—</b></div>
+      <div class="kv"><span>屈肘角</span><b id="elbow-ang">—</b></div>
+    </div>
+    <div class="hint" style="margin-top:6px">同一套等分腧穴在两种基准下间距随「寸 / 像素」换算改变,标尺刻度与腧穴始终对齐。</div>
+  </div>
+
+  <div class="card info" id="info-card">
+    <h2>腧穴信息(点选任一穴位)</h2>
+    <div id="info-body"><div class="placeholder">点击画布上的任一腧穴,显示它到所在段两处标志的骨度分寸。</div></div>
+  </div>
+
+  <div class="card">
+    <h2>图例</h2>
+    <div class="legend">
+      <span><i style="background:var(--lu)"></i>手太阴肺经</span>
+      <span><i style="background:var(--li)"></i>手阳明大肠经</span>
+      <span><i style="background:var(--anchor)"></i>等分分寸锚点</span>
+      <span><i style="background:var(--styloid)"></i>桡骨茎突标志线</span>
+      <span><i style="background:var(--ruler)"></i>骨度标尺</span>
+      <span><i style="background:var(--joint)"></i>可拖动关节</span>
+    </div>
+  </div>
+</aside>
+
+<main>
+  <div id="stage"></div>
+  <div class="float-tag" id="mode-tag">基准:肘横纹 → 腕横纹(12 寸)</div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/two.js@0.8.14/build/two.min.js"></script>
+<script>
+if (typeof Two === 'undefined') {
+  document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/two.js/0.8.14/two.min.js"><\/script>');
+}
+</script>
+<script>
+"use strict";
+/* =====================================================================
+ * 常量与状态
+ * =================================================================== */
+const DEG = Math.PI / 180;
+const FOREARM_CUN = 12, UPPER_CUN = 9;          // 两套骨度基准
+const L_FORE = 460, L_UP = 360;                 // 骨长像素(约束,不随拖动改变)
+// 半宽(体表轮廓)
+const W_FORE_ELBOW = 62, W_FORE_WRIST = 46;
+const W_UP_SHO = 66, W_UP_ELB = 58;
+// —— 旋前临界模型(已数值/解析双重核验,θ* 严格 = 72°)——
+const CRIT_PHI = 4 * DEG;                        // 列缺体表初始角
+const CRIT_W   = W_FORE_WRIST;                   // 腕端半宽 = 46
+const STY_B    = 14;                             // 茎突线旋前内移幅度
+const STY_A    = CRIT_W * Math.cos(CRIT_PHI - 72*DEG) + STY_B * Math.sin(72*DEG); // 30.5467
+const THETA_STAR = 72;                           // 临界旋前角(度)
+
+const state = {
+  S:{x:250,y:470}, E:{x:250,y:110}, W:{x:480,y:225},
+  pron:0, mode:12, selected:null, drag:null,
+};
+
+/* ---------------- 腧穴数据 ----------------
+ * fore: cun=距腕横纹寸数(12寸基准), phi=体表角(0=桡侧, 180=尺侧)
+ * upper: cun=距肘横纹寸数(9寸基准)
+ * -------------------------------------------------- */
+const POINTS_FORE = [
+  {id:'LU9', name:'太渊', mer:'LU', cun:0.0, phi:8},
+  {id:'LU8', name:'经渠', mer:'LU', cun:1.0, phi:6},
+  {id:'LU7', name:'列缺', mer:'LU', cun:1.5, phi:4, crit:true},
+  {id:'LU6', name:'孔最', mer:'LU', cun:7.0, phi:10},
+  {id:'LU5', name:'尺泽', mer:'LU', cun:12.0, phi:12},
+  {id:'LI5', name:'阳溪', mer:'LI', cun:0.0, phi:172},
+  {id:'LI4', name:'合谷', mer:'LI', cun:1.0, phi:168},
+  {id:'LI3', name:'三间', mer:'LI', cun:2.0, phi:165},
+  {id:'LI11',name:'曲池', mer:'LI', cun:12.0, phi:158},
+  {id:'A1',  name:'分寸点·1寸', mer:'AN', cun:1.0, phi:90},
+  {id:'A6',  name:'分寸点·6寸', mer:'AN', cun:6.0, phi:90},
+];
+const POINTS_UP = [
+  {id:'LU2', name:'云门', mer:'LU', cun:9.0, phi:12},
+  {id:'LU3', name:'天府', mer:'LU', cun:3.0, phi:14},
+  {id:'LI13',name:'手五里', mer:'LI', cun:4.0, phi:160},
+  {id:'LI14',name:'臂臑', mer:'LI', cun:7.0, phi:158},
+  {id:'LI15',name:'肩髃', mer:'LI', cun:9.0, phi:155},
+  {id:'B2',  name:'分寸点·2寸', mer:'AN', cun:2.0, phi:90},
+  {id:'B5',  name:'分寸点·5寸', mer:'AN', cun:5.0, phi:90},
+];
+const MER_COLOR = {LU:'var(--lu)', LI:'var(--li)', AN:'var(--anchor)'};
+const MER_NAME  = {LU:'手太阴肺经', LI:'手阳明大肠经', AN:'等分锚点'};
+
+/* =====================================================================
+ * 几何工具
+ * =================================================================== */
+const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y});
+const add=(a,b)=>({x:a.x+b.x,y:a.y+b.y});
+const mul=(a,k)=>({x:a.x*k,y:a.y*k});
+const len=a=>Math.hypot(a.x,a.y);
+const norm=a=>{const l=len(a)||1;return {x:a.x/l,y:a.y/l};};
+const perp=a=>({x:-a.y,y:a.x});
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// 段半宽沿轴向(t∈[0,1])线性插值
+function halfWidthFore(t){return W_FORE_WRIST + (W_FORE_ELBOW-W_FORE_WRIST)*t;}      // t=0 腕 → t=1 肘
+function halfWidthUp(t){return W_UP_ELB + (W_UP_SHO-W_UP_ELB)*t;}                    // t=0 肘 → t=1 肩
+
+/* 前臂基架:轴单位 u(肘→腕),侧向单位 v(指向桡侧=画面右侧的初始侧) */
+function frameFore(){
+  const u = norm(sub(state.W, state.E));
+  const v = perp(u);
+  return {u, v};
+}
+function frameUp(){
+  const u = norm(sub(state.S, state.E));   // 肘→肩
+  const v = perp(u);
+  return {u, v};
+}
+// 前臂表面点世界坐标;t: 腕(0)→肘(1); lateralSign 沿 +v
+function forePoint(t, phi, thetaRad){
+  const {u,v} = frameFore();
+  const w = halfWidthFore(t);
+  const lateral = w * Math.cos(phi - thetaRad);   // 旋前:体表角扫动
+  const depth   = w * Math.sin(phi - thetaRad);
+  const c = add(state.E, mul(u, L_FORE * (1-t))); // t=0 在腕
+  return {pos: add(c, mul(v, lateral)), lateral, depth, w};
+}
+function upPoint(t, phi){
+  const {u,v} = frameUp();
+  const w = halfWidthUp(t);
+  const lateral = w * Math.cos(phi);
+  const c = add(state.E, mul(u, L_UP * t));
+  return {pos: add(c, mul(v, lateral)), lateral, depth:0, w};
+}
+// 桡骨茎突标志线:当前旋前角下的侧向偏移(随桡骨内移)
+function styloidLateral(thetaRad){ return STY_A - STY_B * Math.sin(thetaRad); }
+
+/* =====================================================================
+ * Two.js 场景
+ * =================================================================== */
+const stage = document.getElementById('stage');
+const two = new Two({type:Two.Types.svg, autostart:false}).appendTo(stage);
+const root = two.makeGroup();
+let hitAreas = [];   // {kind, ref, x,y,r}
+
+function mkLine(x1,y1,x2,y2,color,w,id,dash){
+  const l = two.makeLine(x1,y1,x2,y2);
+  l.stroke = color; l.linewidth = w; l.cap='round';
+  if(dash) l.dashes = dash;
+  return l;
+}
+function mkCircle(x,y,r,fill,stroke,lw){
+  const c = two.makeCircle(x,y,r);
+  c.fill = fill; c.stroke = stroke||'none'; c.linewidth=lw||0;
+  return c;
+}
+function mkPath(pts,closed,fill,stroke,lw){
+  const p = two.makePath(...pts.flatMap(q=>[q.x,q.y]), closed);
+  p.fill = fill; p.stroke = stroke; p.linewidth = lw; p.joins='round';
+  return p;
+}
+function mkText(x,y,str,color,size,anchor){
+  const t = new Two.Text(str,x,y,{size:size||12,fill:color,family:'inherit',
+    alignment:anchor||Two.Anchor.center, weight:400});
+  two.add(t); return t;
+}
+
+/* ---------------- 轮廓:圆角段(沿轴的胶囊梯形) ---------------- */
+function limbContour(p0,p1,w0,w1){
+  const u = norm(sub(p1,p0)), v = perp(u), L = len(sub(p1,p0));
+  const r0 = w0, r1 = w1;
+  const pts=[];
+  const N=18;
+  // 起点(p0)半圆
+  for(let i=0;i<=N;i++){const a=Math.PI/2 + Math.PI*i/N; pts.push(add(p0, add(mul(v,Math.cos(a)*r0), mul(u,Math.sin(a)*r0))));}
+  // 长边到 p1
+  const s1 = add(p1, mul(v, r1)); pts.push(s1);
+  // 终点(p1)半圆
+  for(let i=0;i<=N;i++){const a=-Math.PI/2 + Math.PI*i/N; pts.push(add(p1, add(mul(v,Math.cos(a)*r1), mul(u,Math.sin(a)*r1))));}
+  const s0 = add(p0, mul(v,-r0)); pts.push(s0);
+  return pts;
+}
+function handContour(wrist, u, v){
+  // 简化连指手套,随腕方向
+  const w = W_FORE_WRIST;
+  const base = add(wrist, mul(u, 6));
+  const pts=[
+    add(base, mul(v,-w*0.92)),
+    add(add(base,mul(u,30)), mul(v,-w*1.02)),
+    add(add(base,mul(u,78)), mul(v,-w*0.95)),
+    add(add(base,mul(u,92)), mul(v,-w*0.55)),
+    add(add(base,mul(u,100)),mul(v,-w*0.12)),
+    add(add(base,mul(u,100)),mul(v, w*0.40)),
+    add(add(base,mul(u,86)), mul(v, w*0.85)),
+    add(add(base,mul(u,40)), mul(v, w*1.00)),
+    add(base, mul(v,w*0.92)),
+  ];
+  return pts;
+}
+
+/* ---------------- 横纹(体表标志线) ---------------- */
+function crease(center, u, v, halfW, color){
+  const a = add(center, mul(v,-halfW*0.96)), b = add(center, mul(v, halfW*0.96));
+  return mkLine(a.x,a.y,b.x,b.y,color,2.2,'',[7,5]);
+}
+
+/* ---------------- 骨度标尺(side=+1/-1 决定放在轴的哪一侧) ---------------- */
+function drawRuler(pStart, pEnd, totalCun, active, side){
+  const u = norm(sub(pEnd,pStart)), v0 = perp(u);
+  const v = mul(v0, side);                 // 朝向外侧的法向
+  const L = len(sub(pEnd,pStart));
+  const offset = 78;
+  const base0 = add(pStart, mul(v,offset)), base1 = add(pEnd, mul(v,offset));
+  const col = css('--ruler');
+  // 主尺身
+  const bar = mkLine(base0.x,base0.y,base1.x,base1.y,col, active?2.6:1.3);
+  bar.opacity = active?1:0.4;
+  // 端帽
+  [base0,base1].forEach(bp=>{
+    const a=add(bp,mul(v,-7)),c=add(bp,mul(v,7));
+    const cap=mkLine(a.x,a.y,c.x,c.y,col,2.4); cap.opacity=active?1:.4;
+  });
+  const pxPerCun = L/totalCun;
+  for(let i=0;i<=totalCun;i++){
+    const bp = add(base0, mul(u, pxPerCun*i));
+    const major = (i===0||i===totalCun||i%3===0);
+    const tick = major?13:8;
+    const a=add(bp,mul(v,-tick/2)),c=add(bp,mul(v,tick/2));
+    const tk=mkLine(a.x,a.y,c.x,c.y,col,major?2:1.1); tk.opacity=active?1:.4;
+    // 对齐投影:从尺刻度回到体表
+    const surf = add(bp, mul(v,-offset));
+    const gl = mkLine(bp.x,bp.y,surf.x,surf.y,col,0.7,'',[2,4]);
+    gl.opacity = active?0.45:0.16;
+    if(major){
+      const lbl = add(bp, mul(v,17));
+      const tt = mkText(lbl.x,lbl.y, i+'寸', col, 11);
+      tt.opacity = active?1:0.5;
+    }
+  }
+  return pxPerCun;
+}
+
+/* =====================================================================
+ * 渲染主流程
+ * =================================================================== */
+// 叉积:返回 b 在 a 的哪一侧(屏幕坐标,y 向下);>0 表示 b 在 a 顺时针侧
+const cross=(a,b)=>a.x*b.y-a.y*b.x;
+
+function render(){
+  two.clear(); hitAreas = [];
+  two.makeGroup();
+  const skin = css('--skin'), skinSt = css('--skin-stroke'), bone=css('--bone');
+  const theta = state.pron * DEG;
+  const {u:uf, v:vf} = frameFore();           // uf:肘→腕, vf=perp(uf)
+  const {u:uu, v:vu} = frameUp();             // uu:肘→肩, vu=perp(uu)
+
+  /* 自动判定外侧:前臂取背离上臂方向一侧;上臂取背离前臂方向一侧 */
+  const foreSide = cross(uu, uf) >= 0 ? 1 : -1;   // 前臂标尺/标签外侧
+  const upSide   = -foreSide;                      // 上臂在另一侧
+  const vfo = mul(vf, foreSide);   // 前臂外法向
+  const vuo = mul(vu, upSide);     // 上臂外法向
+
+  /* ---- 体表轮廓 ---- */
+  mkPath(limbContour(state.E, state.S, W_UP_ELB, W_UP_SHO),true,skin,skinSt,2);
+  mkPath(limbContour(state.E, state.W, W_FORE_ELBOW, W_FORE_WRIST),true,skin,skinSt,2);
+  mkPath(handContour(state.W,uf,vf),true,skin,skinSt,2);
+
+  /* ---- 骨中心线(淡) ---- */
+  const b1=mkLine(state.S.x,state.S.y,state.E.x,state.E.y,bone,1.5,'',[4,4]); b1.opacity=.5;
+  const b2=mkLine(state.E.x,state.E.y,state.W.x,state.W.y,bone,1.5,'',[4,4]); b2.opacity=.5;
+
+  /* ---- 三处横纹标志 ---- */
+  crease(state.S, uu, vu, W_UP_SHO, css('--line'));
+  crease(state.E, uf, vf, W_FORE_ELBOW, css('--fg'));
+  crease(state.W, uf, vf, W_FORE_WRIST, css('--fg'));
+
+  /* ---- 桡骨茎突标志线(随旋前内移) ---- */
+  const sLat = styloidLateral(theta);
+  const sT0 = 0.10, sT1 = 0.96;
+  const cA = add(state.E, mul(uf, L_FORE*(1-sT1))), cB = add(state.E, mul(uf, L_FORE*(1-sT0)));
+  const sA = add(cA, mul(vf, sLat)), sB = add(cB, mul(vf, sLat));
+  const sl = mkLine(sA.x,sA.y,sB.x,sB.y,css('--styloid'),2.6,'',[10,6]);
+  // 茎突线标签:放在靠腕一端(sB)、沿外法向偏移,避开肘端拥挤区
+  const stLblPos = add(sB, mul(vfo, 18));
+  const stTxt = mkText(stLblPos.x, stLblPos.y+4, '桡骨茎突线', css('--styloid'), 11);
+  stTxt.alignment = foreSide>0 ? Two.Anchor.left : Two.Anchor.right;
+
+  /* ---- 骨度标尺(各放肢体外侧,活动段高亮) ---- */
+  const forePx = drawRuler(state.W, state.E, FOREARM_CUN, state.mode===12, foreSide);
+  const upPx   = drawRuler(state.E, state.S, UPPER_CUN,  state.mode===9,  upSide);
+
+  /* ---- 腧穴世界坐标 ---- */
+  const foreWorld = POINTS_FORE.map(d=>{
+    const t = 1 - d.cun/FOREARM_CUN;
+    const r = forePoint(t, d.phi*DEG, theta);
+    return {...d, t, ...r};
+  });
+  const upWorld = POINTS_UP.map(d=>{
+    const t = d.cun/UPPER_CUN;
+    const r = upPoint(t, d.phi*DEG);
+    return {...d, t, ...r};
+  });
+
+  /* ---- 经络连线 ---- */
+  ['LU','LI'].forEach(mer=>{
+    const col=css(mer==='LU'?'--lu':'--li');
+    const f = foreWorld.filter(p=>p.mer===mer).sort((a,b)=>a.cun-b.cun);
+    if(f.length>1){const pl=two.makePath(...f.flatMap(p=>[p.pos.x,p.pos.y]),false);
+      pl.stroke=col;pl.linewidth=1.5;pl.fill='none';pl.opacity=.5;pl.dashes=[3,4];}
+    const u2 = upWorld.filter(p=>p.mer===mer).sort((a,b)=>a.cun-b.cun);
+    if(u2.length>1){const pl=two.makePath(...u2.flatMap(p=>[p.pos.x,p.pos.y]),false);
+      pl.stroke=col;pl.linewidth=1.5;pl.fill='none';pl.opacity=.5;pl.dashes=[3,4];}
+  });
+
+  /* ---- 标签:二维屏幕空间包围盒排斥(分通道,避免相互压字) ---- */
+  // 每个标签 {x,y,anchor,text,fill,size,bold,opacity,halfW,halfH,channel}
+  const labels = [];
+  const estW = s=>s.length*11.5*0.62 + 8;     // 中文约 11.5px 字宽估算
+  function addLabel(px,py,anchor,text,fill,size,channel,opacity,bold,fromX,fromY){
+    labels.push({x:px,y:py,anchor,text,fill,size:size||10.5,channel,
+      halfW:estW(text)/2, halfH:8, opacity:opacity==null?.95:opacity, bold:!!bold,
+      fromX:fromX==null?px:fromX, fromY:fromY==null?py:fromY});
+  }
+
+  /* ---- 画穴位 ---- */
+  const drawDot=(p,hostActive)=>{
+    const depthT = clamp(p.depth/(p.w||1),-1,1);
+    const op = hostActive? clamp(0.62 + (-depthT)*0.32, .35, 1) : .26;
+    const rr = (p.crit?7:5.5);
+    const fill = css(MER_COLOR[p.mer].slice(4,-1));
+    const isSel = state.selected && state.selected.id===p.id;
+    if(isSel){const ring=mkCircle(p.pos.x,p.pos.y,rr+5,css('--accent'),fill,0);ring.opacity=.3;}
+    const dot = mkCircle(p.pos.x,p.pos.y, rr, fill, '#ffffff', 1.4);
+    dot.opacity = op;
+    hitAreas.push({kind:'point', ref:p, x:p.pos.x,y:p.pos.y,r:rr+6});
+  };
+  // 穴位标签:LU 与 LI/锚点分处肢体两侧;肘/腕端拥挤区采用确定性扇出分层
+  // 为每个通道内的标签按轴向位置排序后分配 tier(放射分层)
+  function tieredLabels(world, uAxis, origin, vSide, chLU, chOther, active){
+    // 先画所有点
+    world.forEach(p=>drawDot(p, active));
+    // 分两侧
+    const sides = {lu:[], other:[]};
+    world.forEach(p=>{
+      const isLU = p.mer==='LU';
+      const vOut = isLU ? mul(vSide.v, vSide.luSign) : vSide.out;
+      const ax = (p.pos.x-origin.x)*uAxis.x + (p.pos.y-origin.y)*uAxis.y;
+      (isLU?sides.lu:sides.other).push({p, vOut, ax});
+    });
+    [['lu',chLU],['other',chOther]].forEach(([key,ch])=>{
+      const arr = sides[key].sort((a,b)=>a.ax-b.ax);
+      // 拥挤窗口:轴坐标差 <40 视为同簇,簇内递增 tier
+      let clusterBase = -1e9, tier=-1;
+      arr.forEach(item=>{
+        if(item.ax - clusterBase > 40){ tier=0; clusterBase=item.ax; }
+        else tier++;
+        const {p,vOut}=item;
+        // 放射:簇内逐级显著外移,并沿轴向交替展开,先验保证不重叠
+        const radial = mul(vOut, 18 + tier*20);
+        const along  = mul(uAxis, (tier%2===0?1:-1)*(6 + tier*9));
+        const lp = add(add(p.pos, radial), along);
+        const anchor = vOut.x>=0 ? Two.Anchor.left : Two.Anchor.right;
+        addLabel(lp.x,lp.y,anchor,p.name,
+          p.crit?css('--styloid'):css('--fg'),10.5,ch, active?.95:.4, p.crit, p.pos.x, p.pos.y);
+      });
+    });
+  }
+  tieredLabels(foreWorld, uf, state.W, {v:vf,luSign:-foreSide,out:vfo}, 'foreLU','foreLI', state.mode===12);
+  tieredLabels(upWorld,   uu, state.E, {v:vu,luSign:-upSide,out:vuo},   'upLU','upLI', state.mode===9);
+
+  /* ---- 横纹标签(放在外侧,带竖直偏置打破对称,避免与关节标签同点叠字) ---- */
+  const tag=(pt,vOut,txt,ch,yBias)=>{
+    const base=add(pt,mul(vOut,26));
+    const lp={x:base.x, y:base.y + (yBias||0)};
+    addLabel(lp.x,lp.y, vOut.x>=0?Two.Anchor.left:Two.Anchor.right, txt, css('--muted'),11, ch, .9, false, pt.x, pt.y);
+  };
+  tag(state.S, vuo, '腋前纹头','creaseUp', -14);
+  tag(state.E, vfo, '肘横纹','creaseFore', -16);
+  tag(state.W, vfo, '腕横纹','creaseFore', 18);
+
+  /* ---- 关节标签(放在内侧,反向竖直偏置) ---- */
+  [['S',state.S,'肩',mul(vu,-upSide),14],['E',state.E,'肘',mul(vf,-foreSide),18],['W',state.W,'腕',mul(vf,-foreSide),-18]]
+  .forEach(([k,pt,nm,vIn,yBias])=>{
+    mkCircle(pt.x,pt.y,11, css('--joint'),'#ffffff',2);
+    const base=add(pt,mul(vIn,28));
+    addLabel(base.x,base.y+yBias, vIn.x>=0?Two.Anchor.left:Two.Anchor.right, nm+'关节', css('--joint'),11,'joint',.95,false, pt.x,pt.y);
+    hitAreas.push({kind:'joint', ref:k, x:pt.x,y:pt.y,r:15});
+  });
+
+  /* ---- 全局二维包围盒排斥:所有标签统一参与,x/y 双向推开 ---- */
+  // 包围盒(外加 4px 安全间距)
+  const PAD=4;
+  const boxOf=l=>{
+    const w=l.halfW+PAD, h=l.halfH+PAD;
+    let cx=l.x;
+    if(l.anchor===Two.Anchor.left) cx=l.x+w;
+    else if(l.anchor===Two.Anchor.right) cx=l.x-w;
+    return {x:cx-w, y:l.y-h, xr:cx+w, yr:l.y+h, cx, cy:l.y};
+  };
+  for(let iter=0; iter<200; iter++){
+    let moved=false;
+    for(let i=0;i<labels.length;i++)for(let j=i+1;j<labels.length;j++){
+      const a=boxOf(labels[i]), b=boxOf(labels[j]);
+      const ox = Math.min(a.xr,b.xr)-Math.max(a.x,b.x);
+      const oy = Math.min(a.yr,b.yr)-Math.max(a.y,b.y);
+      if(ox>0 && oy>0){
+        if(ox < oy){
+          const push = ox/2 + 1;
+          const dir = a.cx <= b.cx ? -1 : 1;
+          labels[i].x += dir*push; labels[j].x -= dir*push;
+        }else{
+          const push = oy/2 + 1;
+          const dir = a.cy <= b.cy ? -1 : 1;
+          labels[i].y += dir*push; labels[j].y -= dir*push;
+        }
+        moved=true;
+      }
+    }
+    if(!moved) break;
+  }
+  // 先画引导线(标签被推开时连接到对应体表点/关节)
+  labels.forEach(l=>{
+    const dist = Math.hypot(l.x-l.fromX, l.y-l.fromY);
+    if(dist > 22){
+      const lead = mkLine(l.fromX,l.fromY,l.x,l.y, l.fill, 0.8,'',[2,3]);
+      lead.opacity = 0.4;
+    }
+  });
+  // 再创建文本:仅对发生位移(被排斥推开)或靠近锚点的标签加半透明衬底
+  const plate = css('--panel');
+  labels.forEach(l=>{
+    const moved = Math.hypot(l.x-l.fromX,l.y-l.fromY) > 26;
+    const crowded = ['joint','creaseFore','creaseUp'].includes(l.channel);
+    if(moved || crowded){
+      const bw = l.halfW*2 + 6, bh = l.halfH*2 + 3;
+      let cx=l.x;
+      if(l.anchor===Two.Anchor.left) cx=l.x+bw/2;
+      else if(l.anchor===Two.Anchor.right) cx=l.x-bw/2;
+      const r = two.makeRectangle(cx, l.y, bw, bh);
+      r.fill=plate; r.stroke='none'; r.opacity=0.78;
+    }
+    const t=mkText(l.x,l.y,l.text,l.fill,l.size,l.anchor);
+    t.opacity=l.opacity; if(l.bold)t.weight=700;
+  });
+
+  two.update();
+  updatePanel(forePx, upPx, foreWorld, upWorld);
+}
+
+/* =====================================================================
+ * 侧栏读数
+ * =================================================================== */
+function elbowAngle(){
+  // 屈肘角 = 180° − 两骨向量夹角;伸直=0°,全屈≈180°
+  const a = norm(sub(state.S,state.E)), b = norm(sub(state.W,state.E));
+  const cos = clamp(a.x*b.x+a.y*b.y,-1,1);
+  return 180 - Math.acos(cos)/DEG;
+}
+function updatePanel(forePx,upPx,foreWorld,upWorld){
+  document.getElementById('pron-val').textContent = state.pron.toFixed(1)+'°';
+  document.getElementById('px-cun').textContent =
+    (state.mode===12? forePx.toFixed(1)+' px/寸' : upPx.toFixed(1)+' px/寸');
+  document.getElementById('seg-len').textContent =
+    (state.mode===12? L_FORE+' px / 12寸' : L_UP+' px / 9寸');
+  document.getElementById('elbow-ang').textContent = elbowAngle().toFixed(1)+'°';
+  document.getElementById('mode-tag').textContent =
+    state.mode===12 ? '基准:肘横纹 → 腕横纹(12 寸)' : '基准:腋前纹头 → 肘横纹(9 寸)';
+
+  // 临界偏差:列缺侧向 - 茎突线侧向
+  const theta = state.pron*DEG;
+  const pLat = CRIT_W * Math.cos(CRIT_PHI - theta);
+  const sLat = styloidLateral(theta);
+  const dev = pLat - sLat;
+  document.getElementById('crit-dev').textContent = (dev>=0?'+':'')+dev.toFixed(2)+' px';
+  const st = document.getElementById('crit-state');
+  if(Math.abs(dev) < 0.05){
+    st.innerHTML = '<span style="color:var(--ok);font-weight:700">● 临界贴合:腧穴压在茎突标志线上</span>';
+  }else if(dev>0){
+    st.innerHTML = '<span style="color:var(--warn)">● 腧穴偏桡侧(未到线),还差 '+Math.abs(dev).toFixed(2)+'px</span>';
+  }else{
+    st.innerHTML = '<span style="color:var(--lu)">● 已越过标志线偏尺侧 '+Math.abs(dev).toFixed(2)+'px</span>';
+  }
+  // 信息卡
+  renderInfo(foreWorld, upWorld, forePx, upPx);
+}
+
+function renderInfo(foreWorld, upWorld, forePx, upPx){
+  const body = document.getElementById('info-body');
+  if(!state.selected){ body.innerHTML='<div class="placeholder">点击画布上的任一腧穴,显示它到所在段两处标志的骨度分寸。</div>'; return; }
+  const p = state.selected;
+  const isFore = p.host==='fore';
+  const total = isFore?FOREARM_CUN:UPPER_CUN;
+  const hostPx = isFore?forePx:upPx;
+  // 到本段两标志的寸数
+  let d0, d1, n0, n1;
+  if(isFore){ // cun 距腕
+    d0=p.cun; d1=FOREARM_CUN-p.cun; n0='腕横纹'; n1='肘横纹';
+  }else{      // cun 距肘
+    d0=p.cun; d1=UPPER_CUN-p.cun; n0='肘横纹'; n1='腋前纹头';
+  }
+  // 活动基准换算(若点不在活动段)
+  const activeTotal = state.mode===12?FOREARM_CUN:UPPER_CUN;
+  const activePx = state.mode===12?forePx:upPx;
+  const sameSeg = (isFore && state.mode===12)||(!isFore && state.mode===9);
+  let note='';
+  if(!sameSeg){
+    const notePx = (isFore? forePx*p.cun : upPx*p.cun);
+    const equivCun = notePx/activePx;
+    note = `当前活动基准为 ${activeTotal} 寸段;该穴所在段 1 寸 = ${hostPx.toFixed(1)}px,按像素折算约合活动段 ${equivCun.toFixed(2)} 寸的长度。`;
+  }else{
+    note = `位于当前活动段,1 寸 = ${hostPx.toFixed(1)} px,标尺刻度与本穴直接对齐。`;
+  }
+  body.innerHTML = `
+    <div class="name">${p.name} <span style="color:var(--muted);font-weight:400;font-size:12px">(${p.id})</span></div>
+    <div class="meta">${MER_NAME[p.mer]} · ${isFore?'前臂(腕→肘 12寸)':'上臂(肘→肩 9寸)'} · 距${isFore?'腕':'肘'} ${p.cun} 寸</div>
+    <div class="cun">
+      <span class="pill">到${n0}:<b>${d0.toFixed(1)} 寸</b></span>
+      <span class="pill">到${n1}:<b>${d1.toFixed(1)} 寸</b></span>
+      <span class="pill">体表角 φ=${p.phi}°</span>
+    </div>
+    <div class="note">${note}</div>`;
+}
+
+/* =====================================================================
+ * 交互:拖动 / 点选
+ * =================================================================== */
+const renderer = two.renderer.domElement;
+function evtPos(e){
+  const r = renderer.getBoundingClientRect();
+  const cx = (e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const cy = (e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  return {x:cx*(two.width/r.width), y:cy*(two.height/r.height)};
+}
+function hitTest(m){
+  for(let i=hitAreas.length-1;i>=0;i--){
+    const h=hitAreas[i];
+    if(Math.hypot(m.x-h.x,m.y-h.y)<=h.r) return h;
+  }
+  return null;
+}
+function clampBone(moving, anchor, L){
+  const d = norm(sub(moving,anchor));
+  return add(anchor, mul(d, L));
+}
+renderer.addEventListener('pointerdown', e=>{
+  const m=evtPos(e), h=hitTest(m);
+  if(h && h.kind==='joint'){ state.drag=h.ref; renderer.setPointerCapture(e.pointerId); }
+  else if(h && h.kind==='point'){ state.selected=h.ref; render(); }
+});
+renderer.addEventListener('pointermove', e=>{
+  if(!state.drag) return;
+  const m=evtPos(e);
+  if(state.drag==='E'){
+    // 肘:分别约束到肩(上臂长)与腕(前臂长)
+    state.E = clampBone(m, state.S, L_UP);
+    // 同步腕保持前臂长
+    state.W = clampBone(state.W, state.E, L_FORE);
+  }else if(state.drag==='W'){
+    state.W = clampBone(m, state.E, L_FORE);
+  }else if(state.drag==='S'){
+    state.S = clampBone(m, state.E, L_UP);
+  }
+  render();
+});
+renderer.addEventListener('pointerup', e=>{ state.drag=null; });
+renderer.addEventListener('pointercancel', ()=>{ state.drag=null; });
+
+/* =====================================================================
+ * UI 控件
+ * =================================================================== */
+const pron = document.getElementById('pron');
+pron.addEventListener('input', ()=>{ state.pron=parseFloat(pron.value); render(); });
+document.getElementById('pron-m1').onclick=()=>setPron(state.pron-0.5);
+document.getElementById('pron-p1').onclick=()=>setPron(state.pron+0.5);
+document.getElementById('pron-zero').onclick=()=>setPron(0);
+document.getElementById('pron-snap').onclick=()=>setPron(THETA_STAR);
+function setPron(v){ state.pron=clamp(v,-90,90); pron.value=state.pron; render(); }
+
+document.getElementById('mode-12').onclick=()=>setMode(12);
+document.getElementById('mode-9').onclick=()=>setMode(9);
+function setMode(m){
+  state.mode=m;
+  document.getElementById('mode-12').classList.toggle('toggled',m===12);
+  document.getElementById('mode-9').classList.toggle('toggled',m===9);
+  render();
+}
+/* 预置姿势:肩固定,按屈肘角在屏幕空间安全布局(腕始终落在肘的右下方,不出界) */
+function pose(flexDeg, pronDeg){
+  const flex = flexDeg*DEG;
+  // 上臂:肩→肘,取竖直向下
+  const E = add(state.S, {x:0, y:L_UP});
+  // 前臂:肘→腕。伸直(flex=0)时与上臂同向(竖直向下);屈肘 flex 时向屏幕右侧张开 flex 角
+  const foreAng = Math.PI/2 - flex;          // 屏幕系:π/2 为竖直向下,减去 flex 即向右偏
+  const W = add(E, {x:Math.cos(foreAng)*L_FORE, y:Math.sin(foreAng)*L_FORE});
+  state.E=E; state.W=W; setPron(pronDeg);
+}
+document.getElementById('pose-flex').onclick=()=>pose(90,0);
+document.getElementById('pose-straight').onclick=()=>pose(0,0);
+document.getElementById('pose-crit').onclick=()=>{ pose(90, THETA_STAR); };
+document.getElementById('pose-neutral').onclick=()=>{
+  state.S={x:300,y:150}; pose(120,0);
+};
+
+/* =====================================================================
+ * 自适应尺寸
+ * =================================================================== */
+function resize(){
+  const r = stage.getBoundingClientRect();
+  two.renderer.setSize(r.width, r.height);
+  two.width=r.width; two.height=r.height;
+  render();
+}
+window.addEventListener('resize', resize);
+
+// 给选中点补 host 信息(数据来源标记)
+POINTS_FORE.forEach(p=>p.host='fore');
+POINTS_UP.forEach(p=>p.host='upper');
+
+// 初始默认姿势:屈肘 120° 开肘(由几何精确生成,避免硬编码坐标误差)
+state.S={x:300,y:150};
+pose(120,0);
+
+resize();
+</script>
+</body>
+</html>
