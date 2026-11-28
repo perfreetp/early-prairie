@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>元宵龙灯巡街 · 三维仿真</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:rgba(14,20,38,.88); --line:rgba(255,210,140,.22);
+    --gold:#ffcf7a; --red:#ff5a52; --jade:#7fe0c0; --txt:#e9e6df; --dim:#9aa3b8;
+  }
+  html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);
+    font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:var(--txt);}
+  canvas#c{width:100%;height:100%;display:block;touch-action:none;}
+  #panel{position:fixed;left:max(12px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top));
+    width:318px;max-height:calc(100vh - 24px);overflow:auto;z-index:10;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 14px 12px;backdrop-filter:blur(8px);box-shadow:0 10px 40px rgba(0,0,0,.5);}
+  #panel h1{font-size:17px;margin:0 0 2px;color:var(--gold);letter-spacing:1px;}
+  #panel .sub{font-size:11.5px;color:var(--dim);margin-bottom:10px;}
+  .sec{border-top:1px solid var(--line);padding-top:10px;margin-top:10px;}
+  .sec b{font-size:12.5px;color:var(--gold);display:block;margin-bottom:6px;}
+  .rbtn{display:block;width:100%;text-align:left;margin:5px 0;padding:8px 10px;border-radius:9px;
+    border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:var(--txt);
+    font-size:12.5px;cursor:pointer;line-height:1.45;}
+  .rbtn small{display:block;color:var(--dim);font-size:11px;margin-top:2px;}
+  .rbtn.active{border-color:var(--gold);background:rgba(255,180,80,.16);}
+  .rbtn .amp{float:right;color:var(--jade);font-weight:bold;}
+  .rule{font-size:11.5px;line-height:1.65;color:#cfd6e6;}
+  .rule .k{color:var(--gold);}
+  .rule .r{color:var(--red);}
+  .rule .j{color:var(--jade);}
+  .ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  button.act{background:linear-gradient(180deg,#c9352f,#8f1d1a);color:#fff;border:0;border-radius:8px;
+    padding:7px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+  button.act.alt{background:rgba(255,255,255,.1);}
+  input[type=range]{width:100%;accent-color:var(--gold);}
+  .tline{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin-top:2px;}
+  #state{font-size:11.5px;line-height:1.7;font-variant-numeric:tabular-nums;}
+  #state .hl{color:var(--gold);} #state .rd{color:var(--red);font-weight:bold;} #state .gr{color:var(--jade);}
+  .bar-row{display:grid;grid-template-columns:34px 1fr 52px;gap:6px;align-items:center;margin:2.5px 0;font-size:10.5px;}
+  .bar-wrap{height:9px;background:rgba(255,255,255,.08);border-radius:5px;position:relative;overflow:hidden;}
+  .bar{position:absolute;top:0;bottom:0;border-radius:5px;}
+  .gap-row{display:grid;grid-template-columns:44px 1fr;gap:6px;align-items:center;font-size:10.5px;color:var(--dim);}
+  .gap-wrap{height:6px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden;}
+  .gap{height:100%;background:var(--jade);border-radius:4px;}
+  #banner{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9;
+    background:rgba(150,20,18,.92);border:1px solid #ff9b8f;border-radius:10px;padding:10px 22px;
+    font-size:15px;font-weight:bold;letter-spacing:2px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+  #hint{position:fixed;right:14px;bottom:12px;z-index:9;font-size:11px;color:var(--dim);
+    background:rgba(10,14,28,.6);padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.08);}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:20;
+    background:#0b1020;color:var(--gold);font-size:15px;letter-spacing:2px;}
+  .camline{display:flex;gap:8px;margin-top:8px;font-size:11.5px;align-items:center;}
+  .camline label{cursor:pointer;color:var(--dim);}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="loading">元宵龙灯巡街 · 场景装载中…</div>
+
+<div id="panel">
+  <h1>🏮 元宵龙灯巡街</h1>
+  <div class="sub">Babylon.js 三维确定性仿真 · 拖动时间轴可逐帧回溯</div>
+
+  <div class="sec" style="border-top:0;padding-top:0;margin-top:0;">
+    <b>预置巡街路线（切换后龙灯从头走一遍）</b>
+    <button class="rbtn" data-route="0" class="rbtn">路线一 · 直街
+      <span class="amp" data-amp="0"></span>
+      <small>长直青石板街，两个摊位避让点；同街口避让幅度较小</small>
+    </button>
+    <button class="rbtn" data-route="1">路线二 · 拐弯
+      <span class="amp" data-amp="1"></span>
+      <small>两处直角转弯，龙身沿弧线甩出；同街口避让幅度更大</small>
+    </button>
+    <button class="rbtn" data-route="2">路线三 · 卡巷（边界情况）
+      <span class="amp" data-amp="2"></span>
+      <small>龙头恰好卡进巷口宽度，龙身挤不过去，队伍逐节停住</small>
+    </button>
+  </div>
+
+  <div class="sec">
+    <b>联动规则（谁先变、谁跟着变）</b>
+    <div class="rule">
+      ① <span class="k">龙头先变</span>：龙头沿路径前进，到避让区先产生<span class="j">侧身偏移</span>并向摊位一侧倾斜。<br>
+      ② <span class="r">龙身跟着变</span>：每节龙身只追<span class="k">前一节的历史轨迹</span>，沿弧长滞后
+      <span class="k">N×固定间距</span>，所以后一节的避让开始/回正都比前一节晚，延迟沿队伍逐节传播。<br>
+      ③ 转弯不硬折：龙身取的是龙头<span class="k">走过的轨迹</span>，弯道处自然甩出平滑弧线。<br>
+      ④ 避让瞬间目标间距被<span class="r">拉长</span>，偏移回正后弹簧逐节<span class="j">收拢</span>回固定间距，收拢同样从龙头向后传播。<br>
+      ⑤ 卡巷时<span class="r">龙头先停</span>，停车波沿链条逐节向后传，每节滑到自己的最小间距才停稳。
+    </div>
+  </div>
+
+  <div class="sec">
+    <b>时间轴（确定性回放，可往回拖）</b>
+    <div class="ctrl">
+      <button class="act" id="playBtn">⏸ 暂停</button>
+      <button class="act alt" id="resetBtn">⏮ 回到起点</button>
+      <select id="speedSel" style="background:rgba(255,255,255,.08);color:var(--txt);border:1px solid rgba(255,255,255,.15);border-radius:7px;padding:6px;">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.5">1.5×</option>
+      </select>
+    </div>
+    <input type="range" id="timeline" min="0" max="1000" value="0" style="margin-top:9px;">
+    <div class="tline"><span id="tNow">t = 0.0 s</span><span id="tEnd"></span></div>
+    <div class="camline">
+      <label><input type="checkbox" id="followCam" checked> 镜头跟随龙头</label>
+    </div>
+  </div>
+
+  <div class="sec">
+    <b>实时状态</b>
+    <div id="state"></div>
+  </div>
+</div>
+
+<div id="banner">⚠ 龙头卡在巷口 — 龙身挤不过去，队伍正在逐节停住</div>
+<div id="hint">鼠标左键旋转 · 右键平移 · 滚轮缩放</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babylonjs/7.0.0/babylon.min.js"></script>
+<script>
+"use strict";
+/* ============================================================================
+ *  PART A — 纯仿真内核（不依赖 Babylon / DOM，确定性，可整体抽出测试）
+ *  所有状态只由 (routeId, t) 决定：时间轴任意回拖都能逐帧复原。
+ * ==========================================================================*/
+/*SIM_CORE_START*/
+
+const SIM = (() => {
+
+  const N_SEG = 10;            // 龙身节数（另加 1 个龙头，共 11 个节点）
+  const BASE_GAP = 1.6;        // 固定间距（米，沿轨迹弧长）
+  const HEAD_SPEED = 1.4;      // 龙头前进速度 米/秒
+  const CHASE_K = 2.6;         // 龙身追赶弹簧（越小停车波拖得越长）
+  const GAP_K = 3.2;           // 间距收拢弹簧
+  const MAX_STRETCH = 1.35;    // 避让时间距最多拉长到 1.35 倍
+  const BOB_AMP = 0.055;       // 上下起伏幅度
+  const FIXED_DT = 1 / 120;    // 固定仿真步长，保证回放确定性
+
+  // 向心 Catmull-Rom（alpha=0.5）：保证急弯处不打环、不出尖点
+  function catmull(p0, p1, p2, p3, u, alpha = 0.5) {
+    const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z) || 1e-6;
+    const t1 = Math.pow(dist(p0, p1), alpha);
+    const t2 = t1 + Math.pow(dist(p1, p2), alpha);
+    const t3 = t2 + Math.pow(dist(p2, p3), alpha);
+    const t = t1 + u * (t2 - t1);
+    const L = (a, b, ta, tb) => {
+      const f = (t - ta) / (tb - ta);
+      return { x: a.x + (b.x - a.x) * f, z: a.z + (b.z - a.z) * f };
+    };
+    const A1 = L(p0, p1, 0, t1), A2 = L(p1, p2, t1, t2), A3 = L(p2, p3, t2, t3);
+    const B1 = L(A1, A2, 0, t2), B2 = L(A2, A3, t1, t3);
+    return L(B1, B2, t1, t2);
+  }
+
+  // 折线圆角：在每个显著转角插入半径 r 的圆弧控制点（共线点自动跳过）
+  function fillet(points, r, arcSegs = 7) {
+    const out = [points[0]];
+    for (let i = 1; i < points.length - 1; i++) {
+      const A = points[i - 1], B = points[i], C = points[i + 1];
+      const u1 = norm(sub(B, A)), u2 = norm(sub(C, B));
+      const cosT = clamp(dot(u1, u2), -1, 1);
+      const theta = Math.acos(cosT);           // 转角
+      if (theta < 0.12) { out.push(B); continue; } // 近似直走，不处理
+      const d = r / Math.tan(theta / 2);       // 切点到角点距离
+      const T1 = { x: B.x - u1.x * d, z: B.z - u1.z * d };
+      const T2 = { x: B.x + u2.x * d, z: B.z + u2.z * d };
+      const perp = { x: -u1.z, z: u1.x };
+      const sign = dot(perp, u2) >= 0 ? 1 : -1;
+      const n = { x: perp.x * sign, z: perp.z * sign }; // 内侧法线
+      const O = { x: T1.x + n.x * r, z: T1.z + n.z * r };
+      const a0 = Math.atan2(T1.z - O.z, T1.x - O.x);
+      const a1 = Math.atan2(T2.z - O.z, T2.x - O.x);
+      let da = a1 - a0;
+      if (sign > 0 && da < 0) da += Math.PI * 2;
+      if (sign < 0 && da > 0) da -= Math.PI * 2;
+      for (let k = 0; k <= arcSegs; k++) {
+        const a = a0 + da * (k / arcSegs);
+        out.push({ x: O.x + r * Math.cos(a), z: O.z + r * Math.sin(a) });
+      }
+    }
+    out.push(points[points.length - 1]);
+    return out;
+  }
+  const sub = (a, b) => ({ x: a.x - b.x, z: a.z - b.z });
+  const dot = (a, b) => a.x * b.x + a.z * b.z;
+  const norm = v => { const l = Math.hypot(v.x, v.z) || 1e-6; return { x: v.x / l, z: v.z / l }; };
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  // 折线等距重采样：消除“密弧点 + 长直段”导致的样条 S 形抖动
+  function resample(points, spacing) {
+    const out = [points[0]];
+    let used = 0;                         // 当前线段起点已被前一段“预支”的距离
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1], b = points[i];
+      const segLen = Math.hypot(b.x - a.x, b.z - a.z);
+      if (segLen < 1e-9) { used = 0; continue; }
+      const ux = (b.x - a.x) / segLen, uz = (b.z - a.z) / segLen;
+      let d = spacing - used;             // 距下一个样本点还需沿本段走多远
+      while (d <= segLen) {
+        out.push({ x: a.x + ux * d, z: a.z + uz * d });
+        d += spacing;
+      }
+      used = segLen - (d - spacing);      // 本段末端到下一个样本点的欠账
+    }
+    const last = points[points.length - 1];
+    if (Math.hypot(last.x - out[out.length - 1].x, last.z - out[out.length - 1].z) > 1e-6) out.push(last);
+    return out;
+  }
+
+  // ---------- 路径：圆角折线 + 向心 Catmull-Rom + 弧长重采样 ----------
+  class Path {
+    constructor(ctrl, cornerRadius = 6) {
+      if (cornerRadius > 0) ctrl = fillet(ctrl, cornerRadius);
+      ctrl = resample(ctrl, 1.4);
+      this.ctrl = ctrl;
+      const samples = [];
+      const seg = ctrl.length - 1;
+      const per = 120;
+      const P = i => ctrl[Math.max(0, Math.min(seg, i))];
+      for (let i = 0; i < seg; i++) {
+        for (let j = 0; j < per; j++) {
+          samples.push(catmull(P(i - 1), P(i), P(i + 1), P(i + 2), j / per));
+        }
+      }
+      samples.push({ x: ctrl[seg].x, z: ctrl[seg].z });
+      // 弧长表（约 0.25m 一行）
+      this.arc = [0];
+      let acc = 0;
+      for (let i = 1; i < samples.length; i++) {
+        acc += Math.hypot(samples[i].x - samples[i - 1].x, samples[i].z - samples[i - 1].z);
+        this.arc.push(acc);
+      }
+      this.samples = samples;
+      this.length = acc;
+    }
+    _idxAt(s) {
+      if (s <= 0) return 0;
+      if (s >= this.length) return this.arc.length - 1;
+      let lo = 0, hi = this.arc.length - 1;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (this.arc[mid] <= s) lo = mid; else hi = mid;
+      }
+      return lo;
+    }
+    pointAt(s) {
+      if (s < 0) { // 起点之前沿初始切线外推（用于排布初始龙身）
+        const p = this.samples[0], n = this.samples[4] || this.samples[1];
+        const d = Math.hypot(n.x - p.x, n.z - p.z) || 1;
+        return { x: p.x + s * (n.x - p.x) / d, z: p.z + s * (n.z - p.z) / d };
+      }
+      if (s >= this.length) {
+        const a = this.samples[this.samples.length - 1], b = this.samples[this.samples.length - 2];
+        const d = Math.hypot(a.x - b.x, a.z - b.z) || 1;
+        const over = s - this.length;
+        return { x: a.x + over * (a.x - b.x) / d, z: a.z + over * (a.z - b.z) / d };
+      }
+      const i = this._idxAt(s), s0 = this.arc[i], s1 = this.arc[i + 1];
+      const f = (s - s0) / Math.max(1e-6, s1 - s0);
+      const a = this.samples[i], b = this.samples[i + 1];
+      return { x: a.x + (b.x - a.x) * f, z: a.z + (b.z - a.z) * f };
+    }
+    // 左侧法线（切线逆时针转 90°）
+    normalAt(s) {
+      const a = this.pointAt(s - 0.35), b = this.pointAt(s + 0.35);
+      const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz) || 1;
+      return { x: -dz / d, z: dx / d };
+    }
+  }
+
+  // ---------- 三条预置路线 ----------
+  // obstacle: {center, half, amp(侧身幅度米), side(-1=路径左侧避让 +1=右侧)}
+  // block: 龙头被巷口卡住的弧长位置；无则 null
+  const ROUTES = [
+    {
+      name: "直街",
+      ctrl: [{ x: 0, z: -46 }, { x: 0, z: -20 }, { x: 0, z: 10 }, { x: 0, z: 46 }],
+      obstacles: [
+        { center: 14, half: 6, amp: 0.7, side: -1 },
+        { center: 42, half: 6, amp: 0.7, side: 1 }   // 对应街口，幅度 0.7
+      ],
+      block: null
+    },
+    {
+      name: "拐弯",
+      ctrl: [{ x: -34, z: -30 }, { x: -8, z: -30 }, { x: 8, z: -30 },
+             { x: 8, z: -6 }, { x: 8, z: 22 }, { x: 30, z: 22 }, { x: 40, z: 22 }],
+      obstacles: [
+        { center: 18, half: 6, amp: 0.95, side: 1 },
+        { center: 68, half: 6, amp: 1.25, side: -1 }  // 对应街口，幅度 1.25（比直街的 0.70 大）
+      ],
+      block: null
+    },
+    {
+      name: "卡巷",
+      ctrl: [{ x: -18, z: 0 }, { x: 2, z: 0 }, { x: 22, z: 0 }, { x: 36, z: 0 }],
+      obstacles: [
+        { center: 12, half: 5, amp: 0.8, side: -1 }   // 先正常避让一次，再卡巷
+      ],
+      block: 30.0
+    }
+  ];
+
+  function smoothBump(d, half) {
+    if (d >= half) return 0;
+    return 0.5 * (1 + Math.cos(Math.PI * d / half)); // 平滑钟形，边缘导数为 0
+  }
+
+  // 龙头在弧长 s 处的避让信息
+  function headDodge(route, s) {
+    let offset = 0, roll = 0, active = false, stretch = 0;
+    for (const ob of route.obstacles) {
+      const d = Math.abs(s - ob.center);
+      const b = smoothBump(d, ob.half);
+      if (b > 0) active = true;
+      offset += ob.side * ob.amp * b;
+      roll += -ob.side * 0.28 * b;       // 向摊位一侧倾斜
+      stretch = Math.max(stretch, b);    // 偏移越大，目标间距拉得越长
+    }
+    return { offset, roll, active, stretch };
+  }
+
+  function init(routeId) {
+    const cfg = ROUTES[routeId];
+    const path = new Path(cfg.ctrl);
+    // 龙头历史轨迹：每 0.2m 弧长存一个“锚点 + 侧身偏移 + 侧倾”，
+    // 龙身沿这条轨迹按弧长滞后跟随 → 避让/回正沿队伍逐节传播，且转弯天然成弧
+    const trail = { ds: 0.2, pts: [] };
+    const nodes = [];
+    // nodes[0]=龙头，nodes[1..10]=龙身；初始沿路径在龙头后方按固定间距排开
+    for (let i = 0; i <= N_SEG; i++) {
+      const targetS = -i * BASE_GAP;
+      nodes.push({
+        s: targetS, anchor: { x: 0, z: 0 },
+        yaw: 0, roll: 0, offset: 0, stretch: 0,
+        targetS, gap: BASE_GAP
+      });
+    }
+    for (const nd of nodes) {
+      const p = path.pointAt(nd.targetS);
+      nd.anchor.x = p.x; nd.anchor.z = p.z;
+    }
+    const sim = {
+      routeId, cfg, path, trail, nodes,
+      t: 0, headS: 0, blocked: false, blockT: null,
+      duration: cfg.block == null
+        ? (path.length + N_SEG * BASE_GAP) / HEAD_SPEED + 1.5
+        : (cfg.block + N_SEG * BASE_GAP) / HEAD_SPEED + 4.0
+    };
+    return sim;
+  }
+
+  // 在龙头历史轨迹上按弧长 s 取值（线性插值；s<0 时给零偏移的起点外推）
+  function trailAt(sim, s) {
+    const { trail, path } = sim;
+    if (trail.pts.length === 0 || s <= 0) {
+      const p = path.pointAt(s);
+      return { x: p.x, z: p.z, offset: 0, roll: 0, stretch: 0 };
+    }
+    const pts = trail.pts;
+    if (s <= pts[0].s) return pts[0];
+    if (s >= pts[pts.length - 1].s) return pts[pts.length - 1];
+    let lo = 0, hi = pts.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (pts[mid].s <= s) lo = mid; else hi = mid;
+    }
+    const a = pts[lo], b = pts[hi];
+    const u = (s - a.s) / Math.max(1e-9, b.s - a.s);
+    return {
+      x: a.x + (b.x - a.x) * u, z: a.z + (b.z - a.z) * u,
+      offset: a.offset + (b.offset - a.offset) * u,
+      roll: a.roll + (b.roll - a.roll) * u,
+      stretch: a.stretch + (b.stretch - a.stretch) * u
+    };
+  }
+
+  // 固定步长推进一次（确定性）
+  function step(sim, dt) {
+    const { path, cfg, nodes } = sim;
+    sim.t += dt;
+
+    // --- 龙头：沿弧长前进（卡巷后冻结） ---
+    if (!sim.blocked) {
+      sim.headS += HEAD_SPEED * dt;
+      if (cfg.block != null && sim.headS >= cfg.block) {
+        sim.headS = cfg.block;
+        sim.blocked = true;
+        sim.blockT = sim.t;
+      }
+    }
+    const hd = headDodge(cfg, sim.headS);
+    const hn = path.normalAt(sim.headS);
+    const hp = path.pointAt(sim.headS);
+    const head = nodes[0];
+    head.targetS = sim.headS;
+    head.s = sim.headS;
+    head.anchor.x = hp.x; head.anchor.z = hp.z;
+    head.offset = hd.offset; head.roll = hd.roll; head.stretch = hd.stretch;
+    {
+      const a = path.pointAt(sim.headS - 0.35), b = path.pointAt(sim.headS + 0.35);
+      head.yaw = Math.atan2(b.x - a.x, b.z - a.z);
+    }
+    // 记录龙头历史轨迹（含侧身偏移后的世界位置），按固定弧长间隔采样
+    const hx = hp.x + hn.x * hd.offset, hz = hp.z + hn.z * hd.offset;
+    const pts = sim.trail.pts;
+    if (pts.length === 0 || sim.headS >= pts[pts.length - 1].s + sim.trail.ds) {
+      pts.push({ s: sim.headS, x: hx, z: hz, offset: hd.offset, roll: hd.roll, stretch: hd.stretch });
+    }
+
+    // --- 龙身：每节只追前一节，沿“龙头历史轨迹”按弧长滞后；间距弹簧 ---
+    for (let i = 1; i <= N_SEG; i++) {
+      const nd = nodes[i], prev = nodes[i - 1];
+      // 目标间距 = 固定间距 ×（1 + 前一节的拉伸量），即“先拉长、再慢慢收拢”
+      const targetGap = BASE_GAP * (1 + MAX_STRETCH * prev.stretch);
+      nd.gap += (targetGap - nd.gap) * Math.min(1, GAP_K * dt);
+      nd.targetS = prev.targetS - nd.gap;
+
+      // 追赶弹簧：龙头停住后，停车波逐节向后传
+      nd.s += (nd.targetS - nd.s) * Math.min(1, CHASE_K * dt);
+
+      // 在龙头轨迹上取自己滞后位置 → 转弯成弧、避让沿队伍传播，都不会硬折
+      const tp = trailAt(sim, Math.max(0, nd.s));
+      nd.anchor.x = tp.x; nd.anchor.z = tp.z;
+      nd.offset = tp.offset; nd.roll = tp.roll; nd.stretch = tp.stretch;
+      {
+        const ta = trailAt(sim, Math.max(0, nd.s - 0.35));
+        const tb = trailAt(sim, Math.max(0, nd.s + 0.35));
+        nd.yaw = Math.atan2(tb.x - ta.x, tb.z - ta.z);
+      }
+      nd._n = path.normalAt(nd.s);
+    }
+    head._n = hn;
+  }
+
+  // 渲染读取的节点状态（含起伏），纯派生量
+  // 龙头的 anchor 是路径锚点（需加法线偏移）；龙身的 anchor 已是含偏移的轨迹位置
+  function snapshot(sim) {
+    return sim.nodes.map((nd, i) => {
+      let x, z;
+      if (i === 0) {
+        const n = nd._n || sim.path.normalAt(nd.s);
+        x = nd.anchor.x + n.x * nd.offset;
+        z = nd.anchor.z + n.z * nd.offset;
+      } else {
+        x = nd.anchor.x; z = nd.anchor.z;
+      }
+      const bob = Math.sin(sim.t * 3.1 - i * 0.55) * BOB_AMP;
+      return {
+        index: i,
+        x, z,
+        y: 0.62 + bob,
+        yaw: nd.yaw, roll: nd.roll,
+        offset: nd.offset, stretch: nd.stretch,
+        gap: nd.gap, s: nd.s
+      };
+    });
+  }
+
+  // 从 t=0 确定性重放到任意时刻（时间轴回拖 / 跳转时调用）
+  function seek(routeId, t) {
+    const sim = init(routeId);
+    let guard = 0;
+    while (sim.t < t - 1e-9 && guard < 200000) {
+      step(sim, FIXED_DT);
+      guard++;
+    }
+    return sim;
+  }
+
+  return { N_SEG, BASE_GAP, HEAD_SPEED, FIXED_DT, ROUTES, Path,
+           init, step, seek, snapshot, headDodge, smoothBump };
+})();
+/*SIM_CORE_END*/
+
+/* ============================================================================
+ *  PART B — Babylon 渲染层：只读仿真快照摆网格，本身不保存任何动画状态
+ * ==========================================================================*/
+const B = BABYLON;
+const canvas = document.getElementById("c");
+const engine = new B.Engine(canvas, true, { stencil: false, preserveDrawingBuffer: false });
+const scene = new B.Scene(engine);
+scene.clearColor = new B.Color4(0.043, 0.063, 0.125, 1);
+scene.fogMode = B.Scene.FOGMODE_EXP2;
+scene.fogDensity = 0.011;
+scene.fogColor = new B.Color3(0.07, 0.10, 0.20);
+
+const camera = new B.ArcRotateCamera("cam", -Math.PI / 2.3, 1.15, 26, new B.Vector3(0, 0, 0), scene);
+camera.attachControl(canvas, true);
+camera.wheelPrecision = 18; camera.lowerRadiusLimit = 6; camera.upperRadiusLimit = 90;
+camera.upperBetaLimit = 1.45;
+
+const hemi = new B.HemisphericLight("hemi", new B.Vector3(0.2, 1, 0.3), scene);
+hemi.intensity = 0.55; hemi.groundColor = new B.Color3(0.12, 0.10, 0.18);
+const moon = new B.DirectionalLight("moon", new B.Vector3(-0.4, -1, 0.5), scene);
+moon.intensity = 0.7;
+
+// ---------- 程序化贴图 ----------
+function slabTexture() {
+  const t = new B.DynamicTexture("slab", 512, scene, false);
+  const ctx = t.getContext();
+  ctx.fillStyle = "#3a4150"; ctx.fillRect(0, 0, 512, 512);
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let y = 0; y < 512; y += 64) for (let x = 0; x < 512; x += 128) {
+    const ox = ((y / 64) % 2) * 64;
+    const g = 52 + Math.floor(rnd() * 22);
+    ctx.fillStyle = `rgb(${g},${g + 6},${g + 16})`;
+    ctx.fillRect(x - ox + 2, y + 2, 124, 60);
+    ctx.strokeStyle = "rgba(15,18,26,.85)"; ctx.lineWidth = 3;
+    ctx.strokeRect(x - ox + 1, y + 1, 126, 62);
+  }
+  for (let i = 0; i < 900; i++) {
+    ctx.fillStyle = `rgba(255,255,255,${rnd() * 0.05})`;
+    ctx.fillRect(rnd() * 512, rnd() * 512, 2, 2);
+  }
+  t.update();
+  t.wrapU = t.wrapV = B.Texture.WRAP_ADDRESSMODE;
+  return t;
+}
+function textTexture(text, color = "#ffd98a") {
+  const t = new B.DynamicTexture("txt", { width: 512, height: 160 }, scene, false);
+  const ctx = t.getContext();
+  ctx.clearRect(0, 0, 512, 160);
+  ctx.fillStyle = "rgba(40,10,8,.85)";
+  ctx.fillRect(8, 28, 496, 104);
+  ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.strokeRect(8, 28, 496, 104);
+  ctx.fillStyle = color; ctx.font = "bold 62px Microsoft YaHei, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(text, 256, 82);
+  t.update();
+  return t;
+}
+
+// ---------- 材质 ----------
+const matGold = new B.StandardMaterial("gold", scene);
+matGold.diffuseColor = new B.Color3(0.95, 0.62, 0.18);
+matGold.emissiveColor = new B.Color3(0.35, 0.18, 0.04);
+const matRed = new B.StandardMaterial("red", scene);
+matRed.diffuseColor = new B.Color3(0.72, 0.10, 0.08);
+matRed.emissiveColor = new B.Color3(0.22, 0.03, 0.02);
+const matRed2 = new B.StandardMaterial("red2", scene);
+matRed2.diffuseColor = new B.Color3(0.85, 0.22, 0.12);
+matRed2.emissiveColor = new B.Color3(0.28, 0.06, 0.03);
+const matLantern = new B.StandardMaterial("lan", scene);
+matLantern.diffuseColor = new B.Color3(1, 0.35, 0.2);
+matLantern.emissiveColor = new B.Color3(0.9, 0.25, 0.08);
+const matWood = new B.StandardMaterial("wood", scene);
+matWood.diffuseColor = new B.Color3(0.32, 0.20, 0.11);
+const matCloth = (r, g, b) => {
+  const m = new B.StandardMaterial("c", scene);
+  m.diffuseColor = new B.Color3(r, g, b); return m;
+};
+const matWall = new B.StandardMaterial("wall", scene);
+matWall.diffuseColor = new B.Color3(0.23, 0.25, 0.30);
+const matAlley = new B.StandardMaterial("alley", scene);
+matAlley.diffuseColor = new B.Color3(0.16, 0.15, 0.18);
+const matMarker = new B.StandardMaterial("mk", scene);
+matMarker.diffuseColor = new B.Color3(0.9, 0.25, 0.2);
+matMarker.emissiveColor = new B.Color3(0.5, 0.08, 0.05);
+matMarker.alpha = 0.55;
+
+// ---------- 地面 / 街道 ----------
+const ground = B.MeshBuilder.CreateGround("ground", { width: 140, height: 140, subdivisions: 2 }, scene);
+const gMat = new B.StandardMaterial("gm", scene);
+gMat.diffuseColor = new B.Color3(0.13, 0.15, 0.20);
+ground.material = gMat; ground.position.y = -0.02;
+
+function buildStreet(routeId) {
+  const cfg = SIM.ROUTES[routeId];
+  const path = new SIM.Path(cfg.ctrl);
+  const width = 7.2, half = width / 2;
+  const left = [], right = [];
+  const STEP = 1.0;
+  for (let s = -3; s <= path.length + 3; s += STEP) {
+    const p = path.pointAt(s), n = path.normalAt(s);
+    left.push(new B.Vector3(p.x + n.x * half, 0, p.z + n.z * half));
+    right.push(new B.Vector3(p.x - n.x * half, 0, p.z - n.z * half));
+  }
+  const ribbon = B.MeshBuilder.CreateRibbon("street" + routeId, {
+    pathArray: [left, right], sideOrientation: B.Mesh.DOUBLESIDE
+  }, scene);
+  const mat = new B.StandardMaterial("sm" + routeId, scene);
+  const tex = slabTexture();
+  const len = path.length / 3.2;
+  tex.uScale = 1; tex.vScale = Math.max(2, len);
+  mat.diffuseTexture = tex;
+  mat.specularColor = new B.Color3(0.05, 0.05, 0.05);
+  ribbon.material = mat;
+  return { path, ribbon };
+}
+const streets = SIM.ROUTES.map((_, id) => buildStreet(id));
+
+// 路线导引虚线
+function buildGuideLine(routeId) {
+  const cfg = SIM.ROUTES[routeId];
+  const path = streets[routeId].path;
+  const pts = [];
+  for (let s = 0; s <= path.length; s += 1.2) {
+    const p = path.pointAt(s);
+    pts.push(new B.Vector3(p.x, 0.03, p.z));
+  }
+  const line = B.MeshBuilder.CreateDashedLines("guide" + routeId,
+    { points: pts, dashSize: 0.5, gapSize: 0.55, dashNb: 60 }, scene);
+  line.color = routeId === 2 ? new B.Color3(1, 0.45, 0.4) : new B.Color3(1, 0.82, 0.45);
+  line.alpha = 0.55;
+  return line;
+}
+const guideLines = SIM.ROUTES.map((_, id) => buildGuideLine(id));
+
+// ---------- 建筑（街道两侧盒子楼） ----------
+function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function buildBuildings() {
+  const r = rng(202602);
+  const mats = [matWall, matCloth(0.30, 0.18, 0.20), matCloth(0.18, 0.22, 0.26)];
+  for (let id = 0; id < 3; id++) {
+    const path = streets[id].path;
+    for (let s = 6; s < path.length - 2; s += 9) {
+      for (const side of [-1, 1]) {
+        const p = path.pointAt(s), n = path.normalAt(s);
+        const w = 4.5 + r() * 2, d = 5 + r() * 2, h = 5 + r() * 7;
+        const box = B.MeshBuilder.CreateBox("b", { width: w, height: h, depth: d }, scene);
+        box.position = new B.Vector3(p.x + n.x * (6.6 + d / 2), h / 2, p.z + n.z * (6.6 + d / 2));
+        // 楼正面平行街道：yaw 对齐法线
+        box.rotation.y = Math.atan2(n.x, n.z);
+        box.material = mats[Math.floor(r() * mats.length)];
+      }
+    }
+  }
+}
+buildBuildings();
+
+// ---------- 摊位 ----------
+const stallMeshes = [];
+function makeStall(x, z, yaw, label, clothMat) {
+  const g = new B.TransformNode("stall", scene);
+  g.position = new B.Vector3(x, 0, z); g.rotation.y = yaw;
+  const base = B.MeshBuilder.CreateBox("sb", { width: 2.6, height: 0.9, depth: 1.5 }, scene);
+  base.parent = g; base.position.y = 0.45; base.material = matWood;
+  const top = B.MeshBuilder.CreateBox("st", { width: 2.9, height: 0.12, depth: 1.75 }, scene);
+  top.parent = g; top.position.y = 0.95; top.material = clothMat;
+  for (const px of [-1.2, 1.2]) for (const pz of [-0.65, 0.65]) {
+    const post = B.MeshBuilder.CreateBox("sp", { width: 0.09, height: 2.3, depth: 0.09 }, scene);
+    post.parent = g; post.position = new B.Vector3(px, 1.15, pz); post.material = matWood;
+  }
+  const roof = B.MeshBuilder.CreateBox("sr", { width: 3.3, height: 0.12, depth: 2.1 }, scene);
+  roof.parent = g; roof.position.y = 2.32; roof.material = clothMat;
+  const sign = B.MeshBuilder.CreatePlane("ss", { width: 2.2, height: 0.68 }, scene);
+  sign.parent = g; sign.position = new B.Vector3(0, 1.85, -1.02);
+  const sm = new B.StandardMaterial("ssm", scene);
+  sm.diffuseTexture = textTexture(label); sm.emissiveTexture = sm.diffuseTexture;
+  sm.emissiveColor = new B.Color3(0.35, 0.25, 0.12);
+  sign.material = sm;
+  // 摊上小灯笼
+  const lan = B.MeshBuilder.CreateSphere("sl", { diameter: 0.34, segments: 10 }, scene);
+  lan.parent = g; lan.position = new B.Vector3(1.15, 1.95, 0.85); lan.material = matLantern;
+  stallMeshes.push(g);
+  return g;
+}
+// 按避让点布置：offset 的对侧才是摊位（龙头朝 -side 方向躲，摊位在 +side 一侧）
+const STALL_LABELS = ["汤圆", "花灯", "糖人", "茶摊", "灯谜", "年糕"];
+function placeStalls() {
+  let k = 0;
+  const cloths = [matCloth(0.65, 0.15, 0.12), matCloth(0.85, 0.55, 0.15), matCloth(0.5, 0.15, 0.4)];
+  for (let id = 0; id < 3; id++) {
+    const cfg = SIM.ROUTES[id], path = streets[id].path;
+    for (const ob of cfg.obstacles) {
+      const p = path.pointAt(ob.center), n = path.normalAt(ob.center);
+      // 摊位在避让方向的反侧
+      const sx = p.x + n.x * ob.side * 2.7, sz = p.z + n.z * ob.side * 2.7;
+      const yaw = Math.atan2(n.x * ob.side, n.z * ob.side);
+      makeStall(sx, sz, yaw, STALL_LABELS[k++ % STALL_LABELS.length], cloths[k % cloths.length]);
+    }
+  }
+}
+placeStalls();
+
+// ---------- 看灯人群（简单小人：身+头） ----------
+function buildCrowd() {
+  const r = rng(11);
+  const bodyMats = [matCloth(0.2, 0.4, 0.55), matCloth(0.5, 0.3, 0.18), matCloth(0.35, 0.25, 0.45), matCloth(0.18, 0.4, 0.3)];
+  const skin = new B.StandardMaterial("skin", scene);
+  skin.diffuseColor = new B.Color3(0.8, 0.62, 0.45);
+  for (let id = 0; id < 3; id++) {
+    const path = streets[id].path;
+    for (let s = 3; s < path.length - 2; s += 3.2) {
+      for (const side of [-1, 1]) {
+        if (r() < 0.28) continue;
+        const p = path.pointAt(s + (r() - .5)), n = path.normalAt(s);
+        const d = 4.4 + r() * 1.1;
+        const x = p.x + n.x * side * d, z = p.z + n.z * side * d;
+        const g = new B.TransformNode("pp", scene);
+        g.position = new B.Vector3(x, 0, z);
+        const body = B.MeshBuilder.CreateCylinder("pb", { height: 1.05, diameter: 0.42, tessellation: 8 }, scene);
+        body.parent = g; body.position.y = 0.62; body.material = bodyMats[Math.floor(r() * bodyMats.length)];
+        const head = B.MeshBuilder.CreateSphere("ph", { diameter: 0.3, segments: 8 }, scene);
+        head.parent = g; head.position.y = 1.32; head.material = skin;
+        g.rotation.y = -Math.atan2(n.x * side, n.z * side);
+      }
+    }
+  }
+}
+buildCrowd();
+
+// ---------- 街边挂灯杆 ----------
+function buildLanternPoles() {
+  for (let id = 0; id < 3; id++) {
+    const path = streets[id].path;
+    for (let s = 8; s < path.length - 4; s += 11) {
+      const p = path.pointAt(s), n = path.normalAt(s);
+      for (const side of [-1, 1]) {
+        const x = p.x + n.x * side * 3.45, z = p.z + n.z * side * 3.45;
+        const pole = B.MeshBuilder.CreateCylinder("lp", { height: 3.2, diameter: 0.1, tessellation: 6 }, scene);
+        pole.position = new B.Vector3(x, 1.6, z); pole.material = matWood;
+        const arm = B.MeshBuilder.CreateBox("la", { width: 0.9, height: 0.07, depth: 0.07 }, scene);
+        arm.position = new B.Vector3(x - n.x * side * 0.4, 3.1, z - n.z * side * 0.4);
+        arm.rotation.y = Math.atan2(n.x, n.z); arm.material = matWood;
+        const lan = B.MeshBuilder.CreateSphere("ll", { diameter: 0.42, segments: 10 }, scene);
+        lan.position = new B.Vector3(x - n.x * side * 0.82, 2.78, z - n.z * side * 0.82);
+        lan.material = matLantern;
+        const pl = new B.PointLight("plg", lan.position, scene);
+        pl.diffuse = new B.Color3(1, 0.45, 0.2); pl.intensity = 0.35; pl.range = 5;
+      }
+    }
+  }
+}
+buildLanternPoles();
+
+// ---------- 巷口（仅路线三）：窄巷 + 宽度标尺 + 警示灯 ----------
+let alleyGroup = null, warnLight = null;
+function buildAlley() {
+  alleyGroup = new B.TransformNode("alley", scene);
+  const path = streets[2].path;
+  const sBlock = SIM.ROUTES[2].block;
+  const p = path.pointAt(sBlock), n = path.normalAt(sBlock);
+  const ALLEY_W = 1.45;          // 巷口净宽 1.45m
+  const yaw = Math.atan2(n.x, n.z);
+  // 两侧墙（巷口在龙头前方，墙沿路径方向延伸）
+  for (const side of [-1, 1]) {
+    const wall = B.MeshBuilder.CreateBox("aw", { width: 0.5, height: 3.4, depth: 9 }, scene);
+    wall.parent = alleyGroup;
+    wall.position = new B.Vector3(p.x + n.x * side * (ALLEY_W / 2 + 0.25), 1.7, p.z + 2.6);
+    wall.rotation.y = yaw; wall.material = matWall;
+    // 巷口立柱 + 红灯
+    const post = B.MeshBuilder.CreateCylinder("ap", { height: 3.4, diameter: 0.16, tessellation: 8 }, scene);
+    post.parent = alleyGroup;
+    post.position = new B.Vector3(p.x + n.x * side * ALLEY_W / 2, 1.7, p.z);
+    post.material = matRed;
+    const lamp = B.MeshBuilder.CreateSphere("alamp", { diameter: 0.3, segments: 10 }, scene);
+    lamp.parent = alleyGroup;
+    lamp.position = new B.Vector3(p.x + n.x * side * ALLEY_W / 2, 3.25, p.z);
+    lamp.material = matLantern;
+  }
+  // 宽度标尺（横在巷口地面，标出 1.45m 净宽）
+  const marker = B.MeshBuilder.CreateBox("mk", { width: ALLEY_W, height: 0.05, depth: 0.35 }, scene);
+  marker.parent = alleyGroup;
+  marker.position = new B.Vector3(p.x, 0.04, p.z - 0.35);
+  marker.rotation.y = yaw; marker.material = matMarker;
+  // 巷内暗面
+  const inner = B.MeshBuilder.CreateBox("in", { width: ALLEY_W - 0.1, height: 0.06, depth: 8.5 }, scene);
+  inner.parent = alleyGroup;
+  inner.position = new B.Vector3(p.x, 0.02, p.z + 3.4);
+  inner.rotation.y = yaw; inner.material = matAlley;
+  // 提示牌
+  const sign = B.MeshBuilder.CreatePlane("asign", { width: 2.6, height: 0.8 }, scene);
+  sign.parent = alleyGroup;
+  const sm = new B.StandardMaterial("asm", scene);
+  sm.diffuseTexture = textTexture("巷口净宽 1.45m", "#ff8a80");
+  sm.emissiveTexture = sm.diffuseTexture; sm.emissiveColor = new B.Color3(0.4, 0.1, 0.08);
+  sign.material = sm;
+  sign.position = new B.Vector3(p.x, 3.9, p.z - 0.2);
+  sign.rotation.y = yaw + Math.PI;
+  warnLight = new B.PointLight("warn", new B.Vector3(p.x, 2.6, p.z), scene);
+  warnLight.diffuse = new B.Color3(1, 0.15, 0.1); warnLight.range = 9; warnLight.intensity = 0;
+}
+buildAlley();
+
+// 星空（用薄球实例，避免依赖易变的 PointsCloudSystem API）
+(function stars() {
+  const r = rng(99);
+  const N = 260;
+  const sphere = B.MeshBuilder.CreateSphere("star", { diameter: 0.28, segments: 4 }, scene);
+  const sm = new B.StandardMaterial("sm", scene);
+  sm.emissiveColor = new B.Color3(0.9, 0.92, 1);
+  sm.disableLighting = true;
+  sphere.material = sm;
+  const instances = [];
+  for (let i = 0; i < N; i++) {
+    const th = r() * Math.PI * 2, ph = r() * Math.PI * 0.45, rad = 85;
+    const inst = sphere.createInstance("st" + i);
+    inst.position = new B.Vector3(
+      rad * Math.sin(ph) * Math.cos(th),
+      rad * Math.cos(ph) + 4,
+      rad * Math.sin(ph) * Math.sin(th));
+    instances.push(inst);
+  }
+  sphere.setEnabled(false); // 模板本体隐藏，只显示实例
+})();
+
+// ---------- 龙（龙头 + N 节龙身 + 连接布筒） ----------
+const dragonRoot = new B.TransformNode("dragon", scene);
+const nodeRoots = [];
+function quatFromYawRoll(yaw, roll) {
+  // 本地 +Z 朝前进方向；先绕 Y 偏航，再绕本地 Z 侧倾
+  const qy = B.Quaternion.RotationAxis(new B.Vector3(0, 1, 0), yaw);
+  const qr = B.Quaternion.RotationAxis(new B.Vector3(0, 0, 1), roll);
+  return qr.multiply(qy);
+}
+function buildDragon() {
+  for (let i = 0; i <= SIM.N_SEG; i++) {
+    const root = new B.TransformNode("n" + i, scene);
+    root.parent = dragonRoot;
+    const isHead = i === 0;
+    const segMat = i % 2 === 0 ? matRed : matRed2;
+    if (isHead) {
+      const head = B.MeshBuilder.CreateBox("head", { width: 1.38, height: 1.0, depth: 1.5 }, scene);
+      head.parent = root; head.position.y = 0.15; head.material = matRed;
+      const snout = B.MeshBuilder.CreateBox("snout", { width: 0.95, height: 0.55, depth: 0.8 }, scene);
+      snout.parent = root; snout.position = new B.Vector3(0, -0.05, 0.95); snout.material = matGold;
+      // 龙角
+      for (const sx of [-1, 1]) {
+        const horn = B.MeshBuilder.CreateCylinder("horn", { height: 0.7, diameterTop: 0.02, diameterBottom: 0.12, tessellation: 6 }, scene);
+        horn.parent = root; horn.position = new B.Vector3(sx * 0.42, 0.85, -0.25);
+        horn.rotation.x = -0.35; horn.material = matGold;
+        const eye = B.MeshBuilder.CreateSphere("eye", { diameter: 0.22, segments: 8 }, scene);
+        eye.parent = root; eye.position = new B.Vector3(sx * 0.55, 0.35, 0.45); eye.material = matLantern;
+      }
+      // 龙头大灯
+      const dl = B.MeshBuilder.CreateSphere("dl", { diameter: 0.5, segments: 12 }, scene);
+      dl.parent = root; dl.position = new B.Vector3(0, 0.85, 0.55); dl.material = matLantern;
+      const pl = new B.PointLight("dpl", B.Vector3.Zero(), scene);
+      pl.parent = root; pl.position = new B.Vector3(0, 1, 0.6);
+      pl.diffuse = new B.Color3(1, 0.4, 0.18); pl.range = 9; pl.intensity = 1.1;
+    } else {
+      const seg = B.MeshBuilder.CreateSphere("seg", { diameterX: 1.15, diameterY: 0.95, diameterZ: 1.3, segments: 12 }, scene);
+      seg.parent = root; seg.material = segMat;
+      const band = B.MeshBuilder.CreateTorus("band", { diameter: 0.85, thickness: 0.07, tessellation: 12 }, scene);
+      band.parent = root; band.scaling.z = 1.25; band.material = matGold;
+      // 背鳍
+      const fin = B.MeshBuilder.CreateCylinder("fin", { height: 0.35, diameterTop: 0, diameterBottom: 0.16, tessellation: 4 }, scene);
+      fin.parent = root; fin.position = new B.Vector3(0, 0.6, 0); fin.material = matGold;
+      // 两侧小灯
+      for (const sx of [-1, 1]) {
+        const l = B.MeshBuilder.CreateSphere("sl", { diameter: 0.26, segments: 8 }, scene);
+        l.parent = root; l.position = new B.Vector3(sx * 0.6, 0.1, 0); l.material = matLantern;
+      }
+      if (i === SIM.N_SEG) { // 尾鳍
+        const tail = B.MeshBuilder.CreateCylinder("tail", { height: 1.0, diameterTop: 0, diameterBottom: 0.5, tessellation: 4 }, scene);
+        tail.parent = root; tail.position = new B.Vector3(0, 0, -0.9);
+        tail.rotation.x = Math.PI / 2; tail.material = matGold;
+      }
+    }
+    nodeRoots.push(root);
+  }
+  // 连接布筒（相邻节点之间，每帧按两端位置重定向）
+  const links = [];
+  for (let i = 0; i < SIM.N_SEG; i++) {
+    const cyl = B.MeshBuilder.CreateCylinder("link", { height: 1, diameter: 0.42, tessellation: 8 }, scene);
+    cyl.parent = dragonRoot; cyl.material = i % 2 ? matRed : matRed2;
+    links.push(cyl);
+  }
+  return links;
+}
+const linkMeshes = buildDragon();
+
+function orientCylinder(cyl, a, b) {
+  const dir = b.subtract(a);
+  const len = dir.length();
+  if (len < 1e-4) { cyl.setEnabled(false); return; }
+  cyl.setEnabled(true);
+  cyl.position = a.add(b).scale(0.5);
+  cyl.lookAt(b);
+  // Cylinder 默认沿本地 Y，lookAt 让 -Z 朝目标 → 再绕 X 转 90°
+  cyl.rotation.x += Math.PI / 2;
+  cyl.scaling.set(1, len, 1);
+}
+
+// ---------- 仿真控制 ----------
+let routeId = 0;
+let sim = SIM.init(0);
+let playing = true;
+let speed = 1;
+let accum = 0;
+let lastTime = performance.now();
+
+function snapCameraToHead() {
+  if (!document.getElementById("followCam").checked) return;
+  const h = nodeRoots[0].position;
+  camera.target = new B.Vector3(h.x, 1.2, h.z);
+}
+
+function applySnapshot() {
+  const snap = SIM.snapshot(sim);
+  for (let i = 0; i < snap.length; i++) {
+    const s = snap[i], root = nodeRoots[i];
+    root.position.set(s.x, s.y, s.z);
+    root.rotationQuaternion = quatFromYawRoll(s.yaw, s.roll);
+  }
+  for (let i = 0; i < linkMeshes.length; i++) {
+    const a = nodeRoots[i].position, b = nodeRoots[i + 1].position;
+    orientCylinder(linkMeshes[i],
+      new B.Vector3(a.x, a.y, a.z), new B.Vector3(b.x, b.y, b.z));
+  }
+  // 巷口红警灯：卡住后闪烁
+  if (warnLight) {
+    warnLight.intensity = sim.blocked ? 0.6 + 0.5 * Math.sin(performance.now() * 0.012) : 0;
+  }
+  document.getElementById("banner").style.display = sim.blocked ? "block" : "none";
+  return snap;
+}
+
+// ---------- DOM ----------
+const timeline = document.getElementById("timeline");
+const playBtn = document.getElementById("playBtn");
+const stateEl = document.getElementById("state");
+
+document.querySelectorAll(".rbtn").forEach(btn => {
+  const id = +btn.dataset.route;
+  btn.querySelector("[data-amp]") || (btn.innerHTML += `<span class="amp" data-amp="${id}"></span>`);
+});
+SIM.ROUTES.forEach((cfg, id) => {
+  const ampEl = document.querySelector(`[data-amp="${id}"]`);
+  if (ampEl) {
+    ampEl.textContent = cfg.block != null ? "卡巷" :
+      "街口避让 " + Math.max(...cfg.obstacles.map(o => o.amp)).toFixed(2) + "m";
+  }
+});
+
+function setRoute(id) {
+  routeId = id;
+  sim = SIM.init(id);
+  accum = 0;
+  playing = true; playBtn.textContent = "⏸ 暂停";
+  timeline.value = 0;
+  document.querySelectorAll(".rbtn").forEach(b => b.classList.toggle("active", +b.dataset.route === id));
+  // 路线可见性
+  streets.forEach((st, i) => st.ribbon.setEnabled(i === id));
+  guideLines.forEach((g, i) => g.setEnabled(i === id));
+  alleyGroup.setEnabled(id === 2);
+  document.getElementById("tEnd").textContent =
+    "全程 " + sim.duration.toFixed(1) + " s";
+  applySnapshot();
+  snapCameraToHead();
+}
+document.querySelectorAll(".rbtn").forEach(btn =>
+  btn.addEventListener("click", () => setRoute(+btn.dataset.route)));
+
+playBtn.addEventListener("click", () => {
+  playing = !playing;
+  playBtn.textContent = playing ? "⏸ 暂停" : "▶ 播放";
+});
+document.getElementById("resetBtn").addEventListener("click", () => {
+  sim = SIM.seek(routeId, 0); accum = 0; timeline.value = 0; applySnapshot(); snapCameraToHead();
+});
+document.getElementById("speedSel").addEventListener("change", e => speed = +e.target.value);
+document.getElementById("followCam").addEventListener("change", e => {
+  camera.detachControl();
+  if (e.target.checked) camera.attachControl(canvas, true);
+});
+
+let seeking = false;
+timeline.addEventListener("input", () => {
+  seeking = true; playing = false; playBtn.textContent = "▶ 播放";
+  const t = (+timeline.value / 1000) * sim.duration;
+  sim = SIM.seek(routeId, t);           // 从 t=0 确定性重放 → 龙头/龙身/避让全部回到当时状态
+  applySnapshot();
+  snapCameraToHead();
+});
+timeline.addEventListener("change", () => { seeking = false; });
+
+// ---------- 状态面板 ----------
+function updateState(snap) {
+  const head = snap[0];
+  const blockedTxt = sim.blocked
+    ? `<span class="rd">已卡住 ${(sim.t - sim.blockT).toFixed(1)}s</span>`
+    : `<span class="gr">通行</span>`;
+  let bars = "";
+  for (let i = 0; i < snap.length; i++) {
+    const s = snap[i];
+    const pct = Math.min(1, Math.abs(s.offset) / 1.3) * 50;
+    const side = s.offset >= 0 ? "left:auto;right:50%;" : "left:50%;right:auto;";
+    const w = Math.max(0.5, pct);
+    bars += `<div class="bar-row"><span>${i === 0 ? "龙头" : "身" + i}</span>
+      <div class="bar-wrap"><div class="bar" style="width:${w}%;${side}background:${i === 0 ? "#ffcf7a" : "#7fe0c0"}"></div></div>
+      <span>${s.offset >= 0 ? "+" : ""}${s.offset.toFixed(2)}</span></div>`;
+  }
+  let gaps = "";
+  for (let i = 1; i < snap.length; i++) {
+    const ratio = snap[i].gap / SIM.BASE_GAP;
+    const pct = Math.min(100, ratio / SIM.MAX_STRETCH * 60 + 25);
+    gaps += `<div class="gap-row"><span>身${i}间距</span>
+      <div class="gap-wrap"><div class="gap" style="width:${pct}%"></div></div></div>`;
+  }
+  stateEl.innerHTML =
+    `状态：${blockedTxt}　龙头弧长 s=<span class="hl">${head.s.toFixed(2)}</span>m<br>` +
+    `龙头侧身偏移：<span class="hl">${head.offset.toFixed(3)}</span>m　侧倾角：<span class="hl">${(head.roll * 180 / Math.PI).toFixed(1)}°</span><br>` +
+    `<div style="margin-top:6px;color:var(--dim)">各节点避让偏移（米，注意逐节滞后）：</div>${bars}` +
+    `<div style="margin-top:6px;color:var(--dim)">龙身间距（拉长后弹性收拢）：</div>${gaps}`;
+  document.getElementById("tNow").textContent = "t = " + sim.t.toFixed(1) + " s";
+  if (!seeking) timeline.value = Math.round(sim.t / sim.duration * 1000);
+}
+
+// ---------- 主循环 ----------
+scene.executeWhenReady(() => {
+  document.getElementById("loading").style.display = "none";
+  setRoute(0);
+  engine.runRenderLoop(() => {
+    const now = performance.now();
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+    dt = Math.min(dt, 0.05);
+    if (playing && !seeking) {
+      accum += dt * speed;
+      let guard = 0;
+      while (accum >= SIM.FIXED_DT && guard < 8) {
+        if (sim.t < sim.duration) SIM.step(sim, SIM.FIXED_DT);
+        accum -= SIM.FIXED_DT; guard++;
+      }
+    }
+    const snap = applySnapshot();
+    updateState(snap);
+    if (document.getElementById("followCam").checked) {
+      const h = nodeRoots[0].position;
+      const target = new B.Vector3(h.x, 1.2, h.z);
+      camera.target = B.Vector3.Lerp(camera.target, target, 0.06);
+    }
+    scene.render();
+  });
+});
+
+window.addEventListener("resize", () => engine.resize());
+window.addEventListener("error", e => {
+  const l = document.getElementById("loading");
+  if (l.style.display !== "none") l.textContent = "脚本加载失败，请检查网络（需访问 CDN 加载 Babylon.js）";
+});
+</script>
+</body>
+</html>
